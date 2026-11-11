@@ -1,11 +1,11 @@
 // Root layout — status bar, header, master, channel strip, footer.
-import AVFoundation
 import SwiftUI
 
 struct ContentView: View {
     @State var store: TonegenStore
     let scopeL: SampleRingBuffer
     let scopeR: SampleRingBuffer
+    let outputRate: OutputRate
 
     /// Which single channel the compact tabs show while unlinked. Pure view selection —
     /// the link flag itself lives in the store.
@@ -142,8 +142,7 @@ struct ContentView: View {
     }
 
     private var sampleRateLabel: String {
-        let sr = AVAudioSession.sharedInstance().sampleRate
-        return String(format: "%.0f kHz · iOS", sr / 1000)
+        OutputRate.label(for: outputRate.sampleRate)
     }
 
     private var appFooter: some View {
@@ -186,6 +185,11 @@ struct ContentView: View {
     #Preview {
         let engine = ToneEngine()
         let store = TonegenStore(bridge: engine.bridge)
-        ContentView(store: store, scopeL: engine.scopeL, scopeR: engine.scopeR)
+        ContentView(
+            store: store,
+            scopeL: engine.scopeL,
+            scopeR: engine.scopeR,
+            outputRate: OutputRate()
+        )
     }
 #endif
