@@ -219,6 +219,19 @@ struct PinkNoise {
 L and R noise generators have **separate seeds** — otherwise the noise is
 correlated and stereo-mono behavior gets weird.
 
+### Waveform switching
+
+Changing a channel's waveform mid-playback crossfades linearly from the old
+waveform to the new one over 5 ms (`WaveformCrossfade`, one per channel).
+During the fade both waveforms are evaluated at the same offset phase and
+blended; a change requested mid-fade waits for the current fade to finish and
+then starts a new one, so the blend weight never jumps. Both phase
+accumulators still step every sample regardless of waveform — a channel that
+detours through noise comes back phase-locked to the other.
+
+When the output is fully gated (transport paused or the channel muted) there
+is nothing to click, so the change applies immediately.
+
 ## Antialiasing — PolyBLEP
 
 For square and saw, subtract a band-limited step (PolyBLEP) at each

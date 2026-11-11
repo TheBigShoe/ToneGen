@@ -61,7 +61,104 @@ final class WaveformRenderTests: XCTestCase {
         XCTAssertEqual(f5 / f1, 1.0 / 25, accuracy: 0.01, "Triangle |H5|/|H1| should be 1/25")
     }
 
+    // MARK: - Waveform switching
+
+    func testWaveformChangeCrossfadesInsteadOfStepping() {
+        // 2400 samples of 440 Hz is exactly 22 cycles, so the switch lands at t ≈ 0 where
+        // the sine is ≈ 0 and the triangle is ≈ −1: a hard cut would step by ≈ the full
+        // −12 dBFS peak.
+        let switchAt = 2400
+        let total = 4800
+        let switching = makeRenderer(waveform: .sine)
+        var out = renderChunked(switching.renderer, frames: switchAt)
+        switching.params.left.waveform = .triangle
+        switching.params.right.waveform = .triangle
+        switching.bridge.update(switching.params)
+        out += renderChunked(switching.renderer, frames: total - switchAt)
+
+        // Same parameters throughout, triangle from the start: what follows the cut.
+        let reference = makeRenderer(waveform: .triangle)
+        let triangle = renderChunked(reference.renderer, frames: total)
+        let hard = Array(out[0 ..< switchAt]) + Array(triangle[switchAt...])
+
+        let hardStep = maxStep(hard, around: switchAt)
+        let fadedStep = maxStep(out, around: switchAt)
+        XCTAssertGreaterThan(hardStep, 0.15, "Test setup should produce a large hard-cut step")
+        XCTAssertLessThan(fadedStep, 0.03, "Crossfade step should be near the waveforms' own slope")
+        XCTAssertLessThan(fadedStep, hardStep / 5)
+
+        // Once the 5 ms fade is over the output is exactly the new waveform.
+        let fadeEnd = switchAt + Int(sampleRate * ToneRenderer.waveformFadeSeconds)
+        for n in fadeEnd ..< total {
+            XCTAssertEqual(out[n], triangle[n], accuracy: 1e-6)
+        }
+    }
+
+    func testWaveformChangeDuringFadeStaysSmooth() {
+        // Requests arriving faster than the fade (every 64 samples) must not restart it
+        // from a different weight — the blend may never jump.
+        let rig = makeRenderer(waveform: .sine)
+        var out = renderChunked(rig.renderer, frames: 2400)
+        for wave in [Waveform.triangle, .sine, .triangle, .sine, .triangle] {
+            rig.params.left.waveform = wave
+            rig.params.right.waveform = wave
+            rig.bridge.update(rig.params)
+            out += renderChunked(rig.renderer, frames: 64)
+        }
+        out += renderChunked(rig.renderer, frames: 2400)
+        XCTAssertLessThan(maxStep(out, around: 2400, radius: 2000), 0.03)
+    }
+
     // MARK: - Helpers
+
+    private final class Rig {
+        let bridge: ParamsBridge
+        let renderer: ToneRenderer
+        var params: EngineParams
+
+        init(bridge: ParamsBridge, renderer: ToneRenderer, params: EngineParams) {
+            self.bridge = bridge
+            self.renderer = renderer
+            self.params = params
+        }
+    }
+
+    private func makeRenderer(waveform: Waveform) -> Rig {
+        let bridge = ParamsBridge()
+        var params = EngineParams()
+        params.playing = true
+        params.left.waveform = waveform
+        params.right.waveform = waveform
+        params.left.frequencyHz = fundamental
+        params.right.frequencyHz = fundamental
+        bridge.update(params)
+        return Rig(
+            bridge: bridge,
+            renderer: ToneRenderer(sampleRate: sampleRate, bridge: bridge),
+            params: params
+        )
+    }
+
+    /// Renders the left channel in device-sized 256-frame buffers.
+    private func renderChunked(_ renderer: ToneRenderer, frames: Int) -> [Float] {
+        var result: [Float] = []
+        var done = 0
+        while done < frames {
+            let n = min(256, frames - done)
+            var left = [Float](repeating: 0, count: n)
+            var right = [Float](repeating: 0, count: n)
+            renderBlock(renderer, left: &left, right: &right)
+            result += left
+            done += n
+        }
+        return result
+    }
+
+    private func maxStep(_ samples: [Float], around index: Int, radius: Int = 400) -> Float {
+        let lo = max(1, index - radius)
+        let hi = min(samples.count, index + radius)
+        return (lo ..< hi).map { abs(samples[$0] - samples[$0 - 1]) }.max() ?? 0
+    }
 
     private func magnitude(waveform: Waveform, hz: Float) -> Float {
         let bridge = ParamsBridge()

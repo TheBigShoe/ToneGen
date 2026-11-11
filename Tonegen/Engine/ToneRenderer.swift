@@ -36,6 +36,11 @@ final class ToneRenderer {
     private var oscL: PhaseOscillator
     private var oscR: PhaseOscillator
 
+    // Per-channel waveform crossfades — a waveform change blends old into new over 5 ms
+    // instead of cutting, which would step the output by up to the full peak-to-peak.
+    private var xfadeL: WaveformCrossfade
+    private var xfadeR: WaveformCrossfade
+
     // L and R noise generators use separate seeds so the streams are uncorrelated.
     private var whiteL = WhiteNoise(state: 0x1234_5678)
     private var whiteR = WhiteNoise(state: 0x8765_4321)
@@ -63,6 +68,9 @@ final class ToneRenderer {
         phaseSmL = PhaseSmoother(initial: 0, sampleRate: sr, timeConstantMs: 30)
         phaseSmR = PhaseSmoother(initial: 0, sampleRate: sr, timeConstantMs: 30)
         masterAmpSm = Smoother(initial: 0, sampleRate: sr, timeConstantMs: 10)
+        let fadeLength = max(1, Int(sr * Self.waveformFadeSeconds))
+        xfadeL = WaveformCrossfade(initial: .sine, length: fadeLength)
+        xfadeR = WaveformCrossfade(initial: .sine, length: fadeLength)
         self.bridge = bridge
     }
 
@@ -77,18 +85,7 @@ final class ToneRenderer {
             lastParams = params
         }
         let p = lastParams
-
-        // Update smoother targets outside the sample loop.
-        muteEnv.target = p.playing ? 1 : 0
-        freqSmL.target = log2f(max(p.left.frequencyHz, 1))
-        freqSmR.target = log2f(max(p.right.frequencyHz, 1))
-        ampSmL.target = max(p.left.amplitudeDbfs, Self.gainFloorDb)
-        ampSmR.target = max(p.right.amplitudeDbfs, Self.gainFloorDb)
-        muteGateL.target = p.left.muted ? 0 : 1
-        muteGateR.target = p.right.muted ? 0 : 1
-        phaseSmL.target = p.left.phaseFraction
-        phaseSmR.target = p.right.phaseFraction
-        masterAmpSm.target = max(p.masterGainDbfs, Self.gainFloorDb)
+        applyTargets(p)
 
         let abl = UnsafeMutableAudioBufferListPointer(buffers)
         guard abl.count >= 2,
@@ -104,6 +101,15 @@ final class ToneRenderer {
         let waveL = p.left.waveform
         let waveR = p.right.waveform
         let sr = oscL.sampleRate
+
+        // While the output is fully gated there is nothing to click, so a waveform change
+        // takes effect at once (this also covers the very first buffer after launch).
+        if muteEnv.value == 0 || muteGateL.value == 0 {
+            xfadeL.jump(to: waveL)
+        }
+        if muteEnv.value == 0 || muteGateR.value == 0 {
+            xfadeR.jump(to: waveR)
+        }
 
         for n in 0 ..< frames {
             let env = muteEnv.next()
@@ -121,31 +127,22 @@ final class ToneRenderer {
             let tL = oscL.step(frequency: freqL)
             let tR = oscR.step(frequency: freqR)
 
-            let sL: Float
-            switch waveL {
-            case .whiteNoise: sL = whiteL.next()
-            case .pinkNoise: sL = pinkL.next()
-            default:
-                let dtL = freqL / sr
-                sL = Self.tonal(
-                    waveL,
-                    phase: Self.offsetPhase(tL, phL),
-                    dt: dtL
-                )
-            }
-
-            let sR: Float
-            switch waveR {
-            case .whiteNoise: sR = whiteR.next()
-            case .pinkNoise: sR = pinkR.next()
-            default:
-                let dtR = freqR / sr
-                sR = Self.tonal(
-                    waveR,
-                    phase: Self.offsetPhase(tR, phR),
-                    dt: dtR
-                )
-            }
+            let sL = Self.channelSample(
+                &xfadeL,
+                requested: waveL,
+                phase: Self.offsetPhase(tL, phL),
+                dt: freqL / sr,
+                white: &whiteL,
+                pink: &pinkL
+            )
+            let sR = Self.channelSample(
+                &xfadeR,
+                requested: waveR,
+                phase: Self.offsetPhase(tR, phR),
+                dt: freqR / sr,
+                white: &whiteR,
+                pink: &pinkR
+            )
 
             let outSampleL = sL * ampL * masterAmp * env
             let outSampleR = sR * ampR * masterAmp * env
@@ -158,6 +155,20 @@ final class ToneRenderer {
         scopeR.write(UnsafeBufferPointer(start: outR, count: frames))
 
         silence.pointee = false
+    }
+
+    /// Points every smoother at the snapshot's values; called once per buffer.
+    private func applyTargets(_ p: EngineParams) {
+        muteEnv.target = p.playing ? 1 : 0
+        freqSmL.target = log2f(max(p.left.frequencyHz, 1))
+        freqSmR.target = log2f(max(p.right.frequencyHz, 1))
+        ampSmL.target = max(p.left.amplitudeDbfs, Self.gainFloorDb)
+        ampSmR.target = max(p.right.amplitudeDbfs, Self.gainFloorDb)
+        muteGateL.target = p.left.muted ? 0 : 1
+        muteGateR.target = p.right.muted ? 0 : 1
+        phaseSmL.target = p.left.phaseFraction
+        phaseSmR.target = p.right.phaseFraction
+        masterAmpSm.target = max(p.masterGainDbfs, Self.gainFloorDb)
     }
 
     // MARK: - Phase
@@ -188,7 +199,44 @@ final class ToneRenderer {
         db <= gainFloorDb ? 0 : exp2f(db * dbToLog2Gain)
     }
 
-    // MARK: - Tonal waveforms — t ∈ [0,1), output ∈ [-1, 1]
+    // MARK: - Waveforms — t ∈ [0,1), output ∈ [-1, 1]
+
+    /// Duration of the crossfade applied when a channel's waveform changes.
+    static let waveformFadeSeconds: Float = 0.005
+
+    /// One sample of a channel's output waveform, blending old into new while `xfade` runs.
+    @inline(__always)
+    private static func channelSample(
+        _ xfade: inout WaveformCrossfade,
+        requested: Waveform,
+        phase t: Float,
+        dt: Float,
+        white: inout WhiteNoise,
+        pink: inout PinkNoise
+    ) -> Float {
+        let mix = xfade.next(requested: requested)
+        let new = sample(xfade.current, phase: t, dt: dt, white: &white, pink: &pink)
+        guard mix < 1 else { return new }
+        let old = sample(xfade.previous, phase: t, dt: dt, white: &white, pink: &pink)
+        return old + mix * (new - old)
+    }
+
+    /// One sample of `wave`. Noise generators are passed in so each channel keeps its own
+    /// uncorrelated stream; they advance only while their waveform is audible.
+    @inline(__always)
+    private static func sample(
+        _ wave: Waveform,
+        phase t: Float,
+        dt: Float,
+        white: inout WhiteNoise,
+        pink: inout PinkNoise
+    ) -> Float {
+        switch wave {
+        case .whiteNoise: white.next()
+        case .pinkNoise: pink.next()
+        default: tonal(wave, phase: t, dt: dt)
+        }
+    }
 
     @inline(__always)
     private static func tonal(_ wave: Waveform, phase t: Float, dt: Float) -> Float {
@@ -199,5 +247,49 @@ final class ToneRenderer {
         case .saw: sawBLEP(t, dt: dt)
         default: 0
         }
+    }
+}
+
+/// Click-free waveform switching for one channel.
+///
+/// A change of requested waveform starts a linear crossfade from the old waveform to the
+/// new one over `length` samples. Requests that arrive mid-fade wait until it completes
+/// and then start a fresh fade, so the blend weight never jumps. Value type with no
+/// storage beyond its fields — safe on the render thread.
+struct WaveformCrossfade {
+    /// Waveform being faded in (or playing alone once the fade completes).
+    private(set) var current: Waveform
+    /// Waveform being faded out. Meaningful only while `next` returns < 1.
+    private(set) var previous: Waveform
+    private var remaining = 0
+    private let length: Int
+    private let invLength: Float
+
+    init(initial: Waveform, length: Int) {
+        current = initial
+        previous = initial
+        self.length = max(1, length)
+        invLength = 1 / Float(self.length)
+    }
+
+    /// Advances one sample toward `requested` and returns the weight of `current`;
+    /// `previous` gets `1 − weight`. Returns exactly 1 when no fade is running.
+    @inline(__always)
+    mutating func next(requested: Waveform) -> Float {
+        if remaining == 0 {
+            if requested == current { return 1 }
+            previous = current
+            current = requested
+            remaining = length
+        }
+        remaining -= 1
+        return 1 - Float(remaining) * invLength
+    }
+
+    /// Switches immediately with no fade — only for when the output is silent anyway.
+    mutating func jump(to wave: Waveform) {
+        current = wave
+        previous = wave
+        remaining = 0
     }
 }
