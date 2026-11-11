@@ -13,9 +13,12 @@ struct LinearSlider: View {
 
     var body: some View {
         GeometryReader { geo in
-            let w = Double(geo.size.width)
+            // Thumb centre travels between half a thumb-width in from each end, so the
+            // thumb never overhangs the track; min and max are still reachable.
+            let inset = sliderThumbWidth / 2
+            let travel = max(Double(geo.size.width) - sliderThumbWidth, 1)
             let pct = clamp((value - range.lowerBound) / (range.upperBound - range.lowerBound))
-            let thumbX = pct * w
+            let thumbX = inset + pct * travel
 
             ZStack(alignment: .leading) {
                 // Track background
@@ -32,7 +35,8 @@ struct LinearSlider: View {
 
                 // Tick marks — centered on the track
                 ForEach(ticks, id: \.self) { tick in
-                    let tx = (tick - range.lowerBound) / (range.upperBound - range.lowerBound) * w
+                    let tx = inset + (tick - range.lowerBound) /
+                        (range.upperBound - range.lowerBound) * travel
                     Rectangle()
                         .fill(Tokens.Color.strokeSoft)
                         .frame(width: 1, height: 6)
@@ -41,11 +45,11 @@ struct LinearSlider: View {
 
                 // Thumb
                 sliderThumb(accentColor: accentColor)
-                    .offset(x: thumbX - 8)
+                    .offset(x: thumbX - inset)
             }
             .gesture(
                 DragGesture(minimumDistance: 0)
-                    .onChanged { drag in updateValue(x: Double(drag.location.x), width: w) }
+                    .onChanged { drag in updateValue(x: Double(drag.location.x), travel: travel) }
             )
         }
         .frame(height: 48)
@@ -64,8 +68,8 @@ struct LinearSlider: View {
         }
     }
 
-    private func updateValue(x: Double, width: Double) {
-        let pct = clamp(x / width)
+    private func updateValue(x: Double, travel: Double) {
+        let pct = clamp((x - sliderThumbWidth / 2) / travel)
         value = pct * (range.upperBound - range.lowerBound) + range.lowerBound
         let atEdge = pct == 0 || pct == 1
         if atEdge, !wasAtEdge { hitEdge.toggle() }
@@ -75,10 +79,12 @@ struct LinearSlider: View {
 
 // MARK: - Shared thumb shape
 
+let sliderThumbWidth: Double = 16
+
 func sliderThumb(accentColor: Color) -> some View {
     RoundedRectangle(cornerRadius: 3)
         .fill(Tokens.Color.bg)
-        .frame(width: 16, height: 24)
+        .frame(width: sliderThumbWidth, height: 24)
         .overlay(
             RoundedRectangle(cornerRadius: 3)
                 .stroke(accentColor, lineWidth: 1)

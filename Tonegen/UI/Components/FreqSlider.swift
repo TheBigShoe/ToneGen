@@ -23,9 +23,11 @@ struct FreqSlider: View {
     var body: some View {
         VStack(spacing: 0) {
             GeometryReader { geo in
-                let w = Double(geo.size.width)
+                // Inset the thumb's travel so it stays inside the track at both ends.
+                let inset = sliderThumbWidth / 2
+                let travel = max(Double(geo.size.width) - sliderThumbWidth, 1)
                 let pos = freqToSliderPosition(frequencyHz)
-                let thumbX = pos * w
+                let thumbX = inset + pos * travel
 
                 ZStack(alignment: .leading) {
                     // Track background
@@ -42,7 +44,7 @@ struct FreqSlider: View {
 
                     // Major ticks (taller)
                     ForEach(majorTicks, id: \.self) { tick in
-                        let tx = freqToSliderPosition(tick) * w
+                        let tx = inset + freqToSliderPosition(tick) * travel
                         Rectangle()
                             .fill(Tokens.Color.strokeSoft)
                             .frame(width: 1, height: 7)
@@ -51,7 +53,7 @@ struct FreqSlider: View {
 
                     // Minor ticks (shorter)
                     ForEach(minorTicks, id: \.self) { tick in
-                        let tx = freqToSliderPosition(tick) * w
+                        let tx = inset + freqToSliderPosition(tick) * travel
                         Rectangle()
                             .fill(Tokens.Color.strokeSoft)
                             .frame(width: 1, height: 4)
@@ -60,12 +62,14 @@ struct FreqSlider: View {
 
                     // Thumb (taller than LinearSlider to match mockup)
                     sliderThumb(accentColor: accentColor)
-                        .frame(width: 16, height: 28)
-                        .offset(x: thumbX - 8)
+                        .frame(width: sliderThumbWidth, height: 28)
+                        .offset(x: thumbX - inset)
                 }
                 .gesture(
                     DragGesture(minimumDistance: 0)
-                        .onChanged { drag in updateFreq(x: Double(drag.location.x), width: w) }
+                        .onChanged { drag in
+                            updateFreq(x: Double(drag.location.x), travel: travel)
+                        }
                 )
             }
             .frame(height: 48)
@@ -93,8 +97,8 @@ struct FreqSlider: View {
         }
     }
 
-    private func updateFreq(x: Double, width: Double) {
-        let pos = min(max(x / width, 0), 1)
+    private func updateFreq(x: Double, travel: Double) {
+        let pos = min(max((x - sliderThumbWidth / 2) / travel, 0), 1)
         let newFreq = sliderPositionToFreq(pos)
         frequencyHz = newFreq
 
