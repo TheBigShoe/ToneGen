@@ -78,7 +78,9 @@ final class ToneEngine {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            let source = notification.object as AnyObject?
+            // Only the identity crosses into the main actor; the posting object itself
+            // is not Sendable.
+            let source = (notification.object as AnyObject?).map(ObjectIdentifier.init)
             MainActor.assumeIsolated {
                 self?.handleConfigurationChange(from: source)
             }
@@ -186,13 +188,19 @@ final class ToneEngine {
     /// Creates a source node rendering `format`, attaches it and connects it to the
     /// main mixer at that format. The mixer's output follows the hardware, so when the
     /// two rates match the signal reaches the output without resampling.
-    private static func attachSource(
+    ///
+    /// `nonisolated` so the render block is not formed in a main-actor context. The SDK
+    /// types the block as non-Sendable, so a closure built inside this `@MainActor` class
+    /// would inherit main-actor isolation and Swift 6 would trap on its first call from
+    /// the audio I/O thread. `@Sendable` makes the compiler prove it captures only the
+    /// (Sendable) renderer.
+    private nonisolated static func attachSource(
         renderer: ToneRenderer,
         format: AVAudioFormat,
         to engine: AVAudioEngine
     ) -> AVAudioSourceNode {
-        let node = AVAudioSourceNode(format: format) { silence, _, frameCount, audioBufferList in
-            renderer.render(frames: Int(frameCount), buffers: audioBufferList, silence: silence)
+        let node = AVAudioSourceNode(format: format) { @Sendable silence, _, frameCount, buffers in
+            renderer.render(frames: Int(frameCount), buffers: buffers, silence: silence)
             return noErr
         }
         engine.attach(node)
@@ -246,8 +254,8 @@ final class ToneEngine {
     /// The system stops the engine when the output hardware changes format
     /// (a USB interface or Bluetooth device with a different sample rate).
     /// The restart goes through `startHardware`, which moves the graph to the new rate.
-    private func handleConfigurationChange(from source: AnyObject?) {
-        guard source === engine, running else { return }
+    private func handleConfigurationChange(from source: ObjectIdentifier?) {
+        guard source == ObjectIdentifier(engine), running else { return }
         if !startHardware() {
             running = false
             onOutputLost?()

@@ -3,7 +3,10 @@
 import os
 
 /// Single-producer / single-consumer sample ring fed one render block at a time.
-final class SampleRingBuffer {
+// @unchecked: `buf` and `writeCount` are mutated without a lock. Safe because only the
+// render thread calls `write` (sole owner of `writeCount`), and the reader only touches
+// slots behind the index it acquires through `idxLock` — the SPSC invariant above.
+final class SampleRingBuffer: @unchecked Sendable {
     private let capacity: Int
     private let mask: Int
     /// Raw buffer — the writer fills slots ahead of the published index while the

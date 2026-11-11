@@ -1,7 +1,9 @@
 // Thread-safe bridge between the main thread and the audio render thread.
 import os
 
-final class ParamsBridge {
+/// Checked `Sendable`: the only stored state is the lock, which is `Sendable` because
+/// `EngineParams` is.
+final class ParamsBridge: Sendable {
     private let lock = OSAllocatedUnfairLock<EngineParams>(initialState: EngineParams())
 
     /// Main thread: atomically replace the current parameter snapshot.

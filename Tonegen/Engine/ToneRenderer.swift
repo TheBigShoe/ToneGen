@@ -3,7 +3,12 @@ import AVFoundation
 import os
 
 /// Produces stereo audio for all waveform types. Called from AVAudioSourceNode's render closure.
-final class ToneRenderer {
+// @unchecked: the mutable DSP state has no lock by design. Safe because `render` is only
+// ever invoked serially by one audio I/O thread; the main thread reads only the immutable
+// `scopeL`/`scopeR` (themselves Sendable) while audio runs, and mutates state through
+// `setSampleRate` only after a synchronous `AVAudioEngine.stop()` and before the next
+// start, so it never overlaps `render`. Parameters cross threads only through `ParamsBridge`.
+final class ToneRenderer: @unchecked Sendable {
     /// Mute envelope — 5 ms ramp on play/pause.
     private var muteEnv: Smoother
 
