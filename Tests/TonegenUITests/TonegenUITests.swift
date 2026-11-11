@@ -164,4 +164,51 @@ final class TonegenUITests: XCTestCase {
         expectFrequency("10.00 kHz")
         XCTAssertTrue(app.buttons["Square wave"].isSelected)
     }
+
+    // MARK: - Runtime isolation
+
+    // These keep audio running so a trap on the render thread, in the meter loop or in a
+    // lifecycle callback kills the app and fails the test instead of passing unnoticed.
+
+    func testSustainedPlaybackThroughEveryWaveform() {
+        app.buttons["Play"].tap()
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
+
+        let labels = [
+            "Sine wave", "Square wave", "Triangle wave",
+            "Sawtooth wave", "White noise", "Pink noise"
+        ]
+        for label in labels {
+            app.buttons[label].firstMatch.tap()
+        }
+        app.buttons["1k"].firstMatch.tap()
+
+        // The one timed wait: audio has to keep rendering (and the meters keep reading)
+        // for long enough that a trap on either thread would have killed the app.
+        let elapsed = expectation(description: "sustained playback")
+        elapsed.isInverted = true
+        wait(for: [elapsed], timeout: 3)
+
+        XCTAssertEqual(app.state, .runningForeground)
+        XCTAssertTrue(app.buttons["Pause"].exists)
+        app.buttons["Pause"].tap()
+        XCTAssertTrue(app.buttons["Play"].waitForExistence(timeout: 5))
+    }
+
+    func testPlaybackSurvivesBackgroundAndReturn() {
+        app.buttons["Play"].tap()
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
+
+        // Resign-active and did-enter-background fire the store's lifecycle observers.
+        XCUIDevice.shared.press(.home)
+        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10))
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
+
+        // Background audio is enabled, so the tone is still playing on return.
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
+        app.buttons["Pause"].tap()
+        XCTAssertTrue(app.buttons["Play"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.state, .runningForeground)
+    }
 }
