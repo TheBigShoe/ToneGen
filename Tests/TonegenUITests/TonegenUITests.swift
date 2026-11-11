@@ -1,10 +1,15 @@
 // Interaction tests for the main iPhone flows. Audio output is never asserted.
 import XCTest
 
+@MainActor
 final class TonegenUITests: XCTestCase {
-    private var app = XCUIApplication()
+    /// Implicitly unwrapped because XCUIApplication is main-actor isolated and cannot be
+    /// a default value of a property that XCTestCase's nonisolated init sets up.
+    private var app: XCUIApplication!
 
-    override func setUp() {
+    /// Async so the override runs on the main actor like the rest of the class.
+    override func setUp() async throws {
+        try await super.setUp()
         continueAfterFailure = false
         app = XCUIApplication()
         // The persisted settings key is shadowed by a non-Data value in the argument
