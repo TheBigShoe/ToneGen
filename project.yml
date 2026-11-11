@@ -96,8 +96,20 @@ schemes:
       config: Debug
     archive:
       config: Release
-  # UI-test-driven App Store screenshots. Kept out of the main scheme so
+  # Interaction tests for the main flows. Kept out of the main scheme so
   # `xcodebuild test` stays fast.
+  TonegenUITests:
+    build:
+      targets:
+        Tonegen: all
+        TonegenUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - name: TonegenUITests
+          skippedTests:
+            - ScreenshotTests
+  # UI-test-driven App Store screenshots.
   TonegenScreenshots:
     build:
       targets:
@@ -106,4 +118,6 @@ schemes:
     test:
       config: Debug
       targets:
-        - TonegenUITests
+        - name: TonegenUITests
+          selectedTests:
+            - ScreenshotTests

@@ -55,7 +55,8 @@
       <Testables>
          <TestableReference
             skipped = "NO"
-            parallelizable = "NO">
+            parallelizable = "NO"
+            useTestSelectionWhitelist = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "8C0A580AC868F06498B916BE"
@@ -63,6 +64,11 @@
                BlueprintName = "TonegenUITests"
                ReferencedContainer = "container:Tonegen.xcodeproj">
             </BuildableReference>
+            <SelectedTests>
+               <Test
+                  Identifier = "ScreenshotTests">
+               </Test>
+            </SelectedTests>
          </TestableReference>
       </Testables>
       <CommandLineArguments>
