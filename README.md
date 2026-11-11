@@ -1,11 +1,11 @@
-# Tonegen
+# ToneGen
 
 A precision stereo test-tone generator for iOS. Independent L/R control over
 waveform (sine, square, triangle, saw, noise), frequency (20 Hz – 20 kHz, log
 scale), amplitude (dBFS), and phase. Built for audio engineers who want a
 clean, fast bench tool on the device already in their pocket.
 
-> Status: pre-alpha. See `docs/work-plan.md`.
+> Status: preparing for App Store release. See `docs/app-store-readiness.md`.
 
 ## Highlights
 
@@ -16,7 +16,7 @@ clean, fast bench tool on the device already in their pocket.
 
 ## Getting Started
 
-Open `Tonegen.xcodeproj` in Xcode 15.3+ and run on an iPhone or iPad
+Open `Tonegen.xcodeproj` in Xcode 26 or later and run on an iPhone or iPad
 (iOS 17+). For development specifics, build commands, and conventions, see
 `CLAUDE.md`.
 
@@ -30,6 +30,10 @@ Open `Tonegen.xcodeproj` in Xcode 15.3+ and run on an iPhone or iPad
 - `docs/conventions.md` — Swift style and repo conventions
 - `mockup/ToneGenMockup.jsx` — interactive visual reference (React)
 
+## Support
+
+Questions and bug reports: [open an issue](https://github.com/TheBigShoe/ToneGen/issues).
+
 ## License
 
-TBD.
+MIT — see [LICENSE](LICENSE).
