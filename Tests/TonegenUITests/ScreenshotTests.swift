@@ -7,6 +7,9 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     func testCaptureStoreScreenshots() {
         let app = XCUIApplication()
+        // Shadow the saved settings so screenshots always start from defaults,
+        // whatever an earlier run left behind.
+        app.launchArguments = ["-tonegen.settings.v1", "reset"]
         app.launch()
 
         // The link button only exists in the wide two-column layout.
