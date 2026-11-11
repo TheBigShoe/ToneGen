@@ -12,11 +12,13 @@ enum Tokens {
         static let stroke = SwiftUI.Color(hex: 0x2A2522)
         static let strokeSoft = SwiftUI.Color(hex: 0x1F1C19)
 
-        // Text
+        // Text — contrast on bg / panel: 17.5 / 17.2, 9.9 / 9.7, 6.6 / 6.5, 4.6 / 4.5.
+        // Ghost is the floor: anything dimmer fails WCAG AA for text, so keep dim
+        // colours for decorative strokes only.
         static let textPrimary = SwiftUI.Color(hex: 0xF5F0E8)
-        static let textSecondary = SwiftUI.Color(hex: 0xA39C93)
-        static let textMuted = SwiftUI.Color(hex: 0x807872)
-        static let textGhost = SwiftUI.Color(hex: 0x4A453F)
+        static let textSecondary = SwiftUI.Color(hex: 0xBDB6AC)
+        static let textMuted = SwiftUI.Color(hex: 0x9B948B)
+        static let textGhost = SwiftUI.Color(hex: 0x81796F)
 
         // Accents
         static let channelL = SwiftUI.Color(hex: 0xFFB147)
