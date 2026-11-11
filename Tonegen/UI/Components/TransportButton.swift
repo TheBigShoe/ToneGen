@@ -8,7 +8,7 @@ struct TransportButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: playing ? "pause.fill" : "play.fill")
-                .font(.system(size: 22, weight: .medium))
+                .font(Tokens.Font.iconLg)
                 .foregroundStyle(Tokens.Color.bg)
                 .frame(width: 52, height: 52)
                 .background(

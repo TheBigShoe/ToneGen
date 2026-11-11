@@ -2,6 +2,18 @@
 // Nothing in the view layer may hardcode these values.
 import SwiftUI
 
+/// A font described by its default-size metrics. It is resolved by `.font(_:)`
+/// below, where it scales with Dynamic Type (and any `.dynamicTypeSize` cap in the
+/// environment, which `UIFontMetrics` would ignore). At the default size the result
+/// is identical to the fixed `Font.system(size:)` it replaced.
+struct TokenFont {
+    let size: CGFloat
+    var weight: SwiftUI.Font.Weight = .regular
+    var design: SwiftUI.Font.Design = .default
+    var monospaced = false
+    let style: SwiftUI.Font.TextStyle
+}
+
 enum Tokens {
     enum Color {
         // Surfaces
@@ -36,16 +48,21 @@ enum Tokens {
     }
 
     enum Font {
-        static let label = SwiftUI.Font.system(size: 10, weight: .medium).monospaced()
-        static let labelLg = SwiftUI.Font.system(size: 11, weight: .medium)
-        static let body = SwiftUI.Font.system(size: 14)
-        static let title = SwiftUI.Font.system(size: 20, weight: .medium)
+        static let label = TokenFont(size: 10, weight: .medium, monospaced: true, style: .caption2)
+        static let labelLg = TokenFont(size: 11, weight: .medium, style: .caption)
+        static let body = TokenFont(size: 14, style: .body)
+        static let title = TokenFont(size: 20, weight: .medium, style: .title3)
 
-        static let readoutXL = SwiftUI.Font.system(size: 48, weight: .regular, design: .monospaced)
-        static let readoutLg = SwiftUI.Font.system(size: 18, weight: .regular, design: .monospaced)
-        static let readoutMd = SwiftUI.Font.system(size: 14, weight: .regular, design: .monospaced)
-        static let readoutSm = SwiftUI.Font.system(size: 11, weight: .regular, design: .monospaced)
-        static let readoutXs = SwiftUI.Font.system(size: 9, weight: .regular, design: .monospaced)
+        static let readoutXL = TokenFont(size: 48, design: .monospaced, style: .largeTitle)
+        static let readoutLg = TokenFont(size: 18, design: .monospaced, style: .body)
+        static let readoutMd = TokenFont(size: 14, design: .monospaced, style: .subheadline)
+        static let readoutSm = TokenFont(size: 11, design: .monospaced, style: .caption)
+        static let readoutXs = TokenFont(size: 9, design: .monospaced, style: .caption2)
+
+        // Glyph sizes for SF Symbols that sit beside text.
+        static let iconXs = TokenFont(size: 10, weight: .medium, style: .caption2)
+        static let iconSm = TokenFont(size: 12, weight: .medium, style: .caption)
+        static let iconLg = TokenFont(size: 22, weight: .medium, style: .title3)
     }
 
     enum Spacing {
@@ -69,5 +86,27 @@ enum Tokens {
     enum Stroke {
         static let hairline: CGFloat = 1
         static let normal: CGFloat = 1.5
+    }
+}
+
+private struct TokenFontModifier: ViewModifier {
+    let token: TokenFont
+    @ScaledMetric private var size: CGFloat
+
+    init(_ token: TokenFont) {
+        self.token = token
+        _size = ScaledMetric(wrappedValue: token.size, relativeTo: token.style)
+    }
+
+    func body(content: Content) -> some View {
+        let base = Font.system(size: size, weight: token.weight, design: token.design)
+        content.font(token.monospaced ? base.monospaced() : base)
+    }
+}
+
+extension View {
+    /// Applies a design-token font that scales with Dynamic Type.
+    func font(_ token: TokenFont) -> some View {
+        modifier(TokenFontModifier(token))
     }
 }

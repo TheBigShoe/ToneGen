@@ -113,6 +113,10 @@ struct ChannelView: View {
                 .padding(.horizontal, Tokens.Spacing.panelPadH)
                 .padding(.vertical, Tokens.Spacing.md)
         }
+        // Dense instrument layout: the eight one-line preset/nudge labels must keep
+        // fitting a 334 pt column, which they only do up to about this size (at
+        // xxxLarge on a 390 pt phone the preset chips already start shrinking).
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
     }
 
     // MARK: - Sub-views
@@ -169,7 +173,7 @@ struct ChannelView: View {
         } label: {
             HStack(spacing: Tokens.Spacing.xs) {
                 Image(systemName: muted ? "speaker.slash.fill" : "speaker.fill")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(Tokens.Font.iconSm)
                 Text(muted ? "MUTED" : "MUTE")
                     .font(Tokens.Font.label)
                     .tracking(2)

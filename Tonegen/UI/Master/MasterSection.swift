@@ -67,6 +67,9 @@ struct MasterSection: View {
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, Tokens.Spacing.panelPadH)
         .padding(.vertical, Tokens.Spacing.panelPadV)
+        // The strip is fixed-height with fixed-width meters; past this size labels no
+        // longer fit beside the slider.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         // Re-keyed on `playing`: the loop only runs while audio is playing, plus the
         // short release tail, instead of waking the main run loop at 60 Hz forever.
         .task(id: store.playing) { await runMeters(playing: store.playing) }
@@ -80,7 +83,7 @@ struct MasterSection: View {
         } label: {
             HStack(spacing: Tokens.Spacing.xxs) {
                 Image(systemName: store.linked ? "link" : "link.slash")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(Tokens.Font.iconXs)
                 Text(store.linked ? "LINK" : "SPLIT")
                     .font(Tokens.Font.label)
                     .tracking(2)

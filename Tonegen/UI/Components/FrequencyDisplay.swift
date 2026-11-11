@@ -26,6 +26,9 @@ struct FrequencyDisplay: View {
             HStack(alignment: .lastTextBaseline, spacing: Tokens.Spacing.xs) {
                 Text(formatted.value)
                     .font(Tokens.Font.readoutXL)
+                    .lineLimit(1)
+                    // "10.00" at the type-size cap would otherwise wrap in a narrow column.
+                    .minimumScaleFactor(0.5)
                     .foregroundStyle(accentColor)
                     .monospacedDigit()
                     .shadow(color: accentColor.opacity(0.3), radius: 8)
