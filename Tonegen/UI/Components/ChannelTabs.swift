@@ -14,7 +14,7 @@ struct ChannelTabs: View {
             Spacer(minLength: 0)
             tab(.right, label: "CH·R", color: Tokens.Color.channelR)
             Spacer(minLength: 0)
-            tab(.linked, label: "⛓", color: Tokens.Color.linked)
+            tab(.linked, symbol: "link", color: Tokens.Color.linked)
         }
         .background(Tokens.Color.panel)
         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.chip))
@@ -24,7 +24,21 @@ struct ChannelTabs: View {
         )
     }
 
-    private func tab(_ channel: ActiveChannel, label: String, color: Color) -> some View {
+    @ViewBuilder
+    private func tabContent(label: String?, symbol: String?) -> some View {
+        if let symbol {
+            Image(systemName: symbol).font(Tokens.Font.labelLg)
+        } else if let label {
+            Text(label).font(Tokens.Font.labelLg).tracking(1)
+        }
+    }
+
+    private func tab(
+        _ channel: ActiveChannel,
+        label: String? = nil,
+        symbol: String? = nil,
+        color: Color
+    ) -> some View {
         let selected = active == channel
         let a11yLabel = switch channel {
         case .left: "Channel L"
@@ -34,9 +48,7 @@ struct ChannelTabs: View {
         return Button {
             active = channel
         } label: {
-            Text(label)
-                .font(Tokens.Font.labelLg)
-                .tracking(1)
+            tabContent(label: label, symbol: symbol)
                 .foregroundStyle(selected ? color : Tokens.Color.textMuted)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Tokens.Spacing.sm)
