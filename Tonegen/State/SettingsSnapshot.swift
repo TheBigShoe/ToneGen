@@ -27,6 +27,9 @@ struct SettingsSnapshot: Codable, Equatable {
     var right: Channel
     var masterGainDbfs: Double
     var linked: Bool
+    /// Optional so blobs saved before this field existed still decode at the same
+    /// schema version; nil means the default rate.
+    var requestedSampleRate: Double?
 
     /// Returns a copy with every number clamped into range (non-finite values
     /// replaced by the default) and unknown waveforms replaced by sine.
@@ -35,7 +38,16 @@ struct SettingsSnapshot: Codable, Equatable {
         copy.left = left.sanitized()
         copy.right = right.sanitized()
         copy.masterGainDbfs = Self.clean(masterGainDbfs, Self.masterGainRange, fallback: 0)
+        copy.requestedSampleRate = Self.validRate(requestedSampleRate)
         return copy
+    }
+
+    /// The rate itself if it is one the app offers, else the default.
+    static func validRate(_ rate: Double?) -> Double {
+        guard let rate, TonegenStore.allowedSampleRates.contains(rate) else {
+            return TonegenStore.defaultSampleRate
+        }
+        return rate
     }
 
     fileprivate static func clean(

@@ -29,6 +29,20 @@ final class OutputRate {
         "\(kilohertz(sampleRate)) kHz · iOS"
     }
 
+    /// Header menu label. Shows the actual rate; when the hardware is not running the
+    /// requested one, appends it ("48 kHz · 96 req") so the request is never mistaken
+    /// for the rate in use.
+    static func menuLabel(actual: Double, requested: Double) -> String {
+        guard actual != requested else { return label(for: actual) }
+        return "\(kilohertz(actual)) kHz · \(kilohertz(requested)) req"
+    }
+
+    /// VoiceOver value: the actual rate, plus the request when it differs.
+    static func accessibilityValue(actual: Double, requested: Double) -> String {
+        guard actual != requested else { return "\(kilohertz(actual)) kHz" }
+        return "\(kilohertz(actual)) kHz, \(kilohertz(requested)) kHz requested"
+    }
+
     /// Rate in kHz with up to two decimals and no trailing zeros: 48000 → "48",
     /// 44100 → "44.1", 22050 → "22.05". Fixed "." separator — this is a spec value.
     static func kilohertz(_ sampleRate: Double) -> String {

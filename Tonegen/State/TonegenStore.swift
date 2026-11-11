@@ -21,6 +21,17 @@ final class TonegenStore {
         didSet { if linked != oldValue { scheduleSave() } }
     }
 
+    /// Output rate the user asked the hardware for. A request: the route may run at
+    /// another rate, which `OutputRate` reports.
+    private(set) var requestedSampleRate: Double = TonegenStore.defaultSampleRate
+
+    /// Rates offered in the UI, in Hz.
+    nonisolated static let allowedSampleRates: [Double] = [
+        44100, 48000, 88200, 96000, 176_400, 192_000
+    ]
+
+    nonisolated static let defaultSampleRate: Double = 48000
+
     /// True when audio output could not be started or was lost and not recovered.
     /// Cleared by the next successful start.
     private(set) var outputFailed = false
@@ -29,6 +40,10 @@ final class TonegenStore {
     private let startOutput: @MainActor () -> Bool
     /// Releases audio output after the renderer has faded out.
     private let stopOutput: @MainActor () -> Void
+
+    /// Asks the session for a new preferred rate. Kept as a closure so the store
+    /// never touches AVFoundation.
+    private let applySampleRate: @MainActor (Double) -> Void
 
     /// Set while an audio session interruption has paused playback the user started.
     private var resumeAfterInterruption = false
@@ -42,18 +57,20 @@ final class TonegenStore {
     @ObservationIgnored private nonisolated(unsafe) var lifecycleObservers: [NSObjectProtocol] = []
 
     /// One versioned key; change the suffix together with `SettingsSnapshot.currentVersion`.
-    static let settingsKey = "tonegen.settings.v1"
+    nonisolated static let settingsKey = "tonegen.settings.v1"
 
     init(
         bridge: ParamsBridge,
         startOutput: @escaping @MainActor () -> Bool = { true },
         stopOutput: @escaping @MainActor () -> Void = {},
+        applySampleRate: @escaping @MainActor (Double) -> Void = { _ in },
         defaults: UserDefaults? = .standard,
         saveDelay: Duration = .milliseconds(500)
     ) {
         self.bridge = bridge
         self.startOutput = startOutput
         self.stopOutput = stopOutput
+        self.applySampleRate = applySampleRate
         self.defaults = defaults
         self.saveDelay = saveDelay
         // Restore before the first publish so the engine never sees stale defaults.
@@ -146,6 +163,24 @@ final class TonegenStore {
         scheduleSave()
     }
 
+    /// Requests an output rate. Values outside `allowedSampleRates` are ignored, and the
+    /// apply hook fires only when the value actually changes.
+    func setRequestedSampleRate(_ rate: Double) {
+        guard Self.allowedSampleRates.contains(rate), rate != requestedSampleRate else { return }
+        requestedSampleRate = rate
+        applySampleRate(rate)
+        scheduleSave()
+    }
+
+    /// The saved requested rate, for configuring the audio session before the store
+    /// exists. Falls back to the default for missing or invalid data.
+    nonisolated static func savedSampleRate(defaults: UserDefaults? = .standard) -> Double {
+        guard let data = defaults?.data(forKey: settingsKey),
+              let snapshot = SettingsSnapshot.decode(data)
+        else { return defaultSampleRate }
+        return SettingsSnapshot.validRate(snapshot.requestedSampleRate)
+    }
+
     func setMasterGain(_ dbfs: Double) {
         masterGainDbfs = dbfs
         pushParams()
@@ -162,6 +197,9 @@ final class TonegenStore {
         right.apply(snapshot.right)
         masterGainDbfs = snapshot.masterGainDbfs
         linked = snapshot.linked
+        // Assigned directly: the session is configured from the saved value at launch,
+        // so restoring must not fire the apply hook.
+        requestedSampleRate = SettingsSnapshot.validRate(snapshot.requestedSampleRate)
     }
 
     private func currentSnapshot() -> SettingsSnapshot {
@@ -169,7 +207,8 @@ final class TonegenStore {
             left: left.snapshot,
             right: right.snapshot,
             masterGainDbfs: masterGainDbfs,
-            linked: linked
+            linked: linked,
+            requestedSampleRate: requestedSampleRate
         )
     }
 
