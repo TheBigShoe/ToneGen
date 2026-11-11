@@ -48,6 +48,29 @@ final class ToneRendererTests: XCTestCase {
         XCTAssertEqual(rms(rightBuf), 0, accuracy: 1e-6)
     }
 
+    /// A channel that detours through noise must come back in phase with the other one.
+    func testPhaseRelationshipSurvivesNoiseDetour() {
+        let bridge = ParamsBridge()
+        var params = EngineParams()
+        params.playing = true
+        params.left.waveform = .whiteNoise
+        params.right.waveform = .sine
+        bridge.update(params)
+        let renderer = ToneRenderer(sampleRate: sampleRate, bridge: bridge)
+
+        var leftBuf = [Float](repeating: 0, count: frameCount)
+        var rightBuf = [Float](repeating: 0, count: frameCount)
+        renderInto(renderer: renderer, left: &leftBuf, right: &rightBuf)
+
+        params.left.waveform = .sine
+        bridge.update(params)
+        renderInto(renderer: renderer, left: &leftBuf, right: &rightBuf)
+
+        for n in (frameCount - 1000) ..< frameCount {
+            XCTAssertEqual(leftBuf[n], rightBuf[n], accuracy: 1e-5)
+        }
+    }
+
     // MARK: - Helpers
 
     /// Builds a ToneRenderer with a pre-populated bridge snapshot.

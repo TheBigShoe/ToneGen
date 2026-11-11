@@ -104,12 +104,17 @@ final class ToneRenderer {
             let phL = phaseSmL.next()
             let phR = phaseSmR.next()
 
+            // Both accumulators advance every sample, even while a channel plays noise.
+            // Skipping one would leave L and R at an arbitrary offset once the channel
+            // returns to a tonal waveform, breaking the phase control.
+            let tL = oscL.step(frequency: freqL)
+            let tR = oscR.step(frequency: freqR)
+
             let sL: Float
             switch waveL {
             case .whiteNoise: sL = whiteL.next()
             case .pinkNoise: sL = pinkL.next()
             default:
-                let tL = oscL.step(frequency: freqL)
                 let dtL = freqL / sr
                 sL = Self.tonal(
                     waveL,
@@ -123,7 +128,6 @@ final class ToneRenderer {
             case .whiteNoise: sR = whiteR.next()
             case .pinkNoise: sR = pinkR.next()
             default:
-                let tR = oscR.step(frequency: freqR)
                 let dtR = freqR / sr
                 sR = Self.tonal(
                     waveR,
