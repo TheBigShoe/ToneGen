@@ -40,6 +40,7 @@
 		A9697E1AA0326708E10C0EDE /* SmootherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45DBFB4E445A00FA5881DEF6 /* SmootherTests.swift */; };
 		AE0A6E5726DE14BF56B28AB3 /* EngineParams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A7E89D43C9196E00A898E16 /* EngineParams.swift */; };
 		B4743E407CE06D9EA61B8F8A /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0056CD234756853B44317508 /* Tokens.swift */; };
+		B4C954C75B0878AD12EC5729 /* ScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B487AF26A034297F7398209 /* ScreenshotTests.swift */; };
 		C1076155FF71B31E00CEA8BB /* WaveformGlyph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FD3F304DD4B939818826B35 /* WaveformGlyph.swift */; };
 		C12B6C374211594B6EDD377B /* GrainOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67ACF15B1D3C70B153522FAD /* GrainOverlay.swift */; };
 		C35A446F61EE3C130E831AD3 /* ThemePreviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C15E001ADE1326248CB5AC4 /* ThemePreviewScreen.swift */; };
@@ -93,6 +94,7 @@
 		745824FCDE26EFAFED8662A3 /* PresetRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetRow.swift; sourceTree = "<group>"; };
 		794A3019B6E4BE75FCE77592 /* Waveform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Waveform.swift; sourceTree = "<group>"; };
 		7A7E89D43C9196E00A898E16 /* EngineParams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineParams.swift; sourceTree = "<group>"; };
+		7B487AF26A034297F7398209 /* ScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTests.swift; sourceTree = "<group>"; };
 		7DC5273ED76DF0BD4F4D2D59 /* WaveformPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaveformPicker.swift; sourceTree = "<group>"; };
 		7EF2611D77B6CD4A9E3945EA /* PhaseOscillatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhaseOscillatorTests.swift; sourceTree = "<group>"; };
 		7F323D4F5E914E6E933F7E8B /* SampleRingBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleRingBuffer.swift; sourceTree = "<group>"; };
@@ -243,6 +245,7 @@
 		DC1BC54841D7C2E1E7B9887F /* TonegenUITests */ = {
 			isa = PBXGroup;
 			children = (
+				7B487AF26A034297F7398209 /* ScreenshotTests.swift */,
 				630E35F15E47D2E610285617 /* TonegenUITests.swift */,
 			);
 			name = TonegenUITests;
@@ -409,6 +412,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B4C954C75B0878AD12EC5729 /* ScreenshotTests.swift in Sources */,
 				D8FF5DB5E50281D49940CDD9 /* TonegenUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

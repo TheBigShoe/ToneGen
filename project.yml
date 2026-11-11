@@ -91,3 +91,14 @@ schemes:
       config: Debug
     archive:
       config: Release
+  # UI-test-driven App Store screenshots. Kept out of the main scheme so
+  # `xcodebuild test` stays fast.
+  TonegenScreenshots:
+    build:
+      targets:
+        Tonegen: all
+        TonegenUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - TonegenUITests
