@@ -26,9 +26,9 @@ final class TonegenStore {
     private(set) var outputFailed = false
 
     /// Brings audio output up. Returns false if the hardware could not be started.
-    private let startOutput: () -> Bool
+    private let startOutput: @MainActor () -> Bool
     /// Releases audio output after the renderer has faded out.
-    private let stopOutput: () -> Void
+    private let stopOutput: @MainActor () -> Void
 
     /// Set while an audio session interruption has paused playback the user started.
     private var resumeAfterInterruption = false
@@ -46,8 +46,8 @@ final class TonegenStore {
 
     init(
         bridge: ParamsBridge,
-        startOutput: @escaping () -> Bool = { true },
-        stopOutput: @escaping () -> Void = {},
+        startOutput: @escaping @MainActor () -> Bool = { true },
+        stopOutput: @escaping @MainActor () -> Void = {},
         defaults: UserDefaults? = .standard,
         saveDelay: Duration = .milliseconds(500)
     ) {

@@ -42,19 +42,28 @@ final class NowPlayingController {
 
     private func add(
         _ command: MPRemoteCommand,
-        _ action: @escaping @MainActor (NowPlayingController) -> MPRemoteCommandHandlerStatus
+        _ action: @escaping @MainActor @Sendable (NowPlayingController) -> MPRemoteCommandHandlerStatus
     ) {
         command.isEnabled = true
-        // Delivery thread is not documented, so hop to main explicitly rather than
-        // trusting assumeIsolated alone.
-        let target = command.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            let run: () -> MPRemoteCommandHandlerStatus = {
-                MainActor.assumeIsolated { action(self) }
+        let target = command.addTarget(handler: Self.makeHandler(owner: self, action: action))
+        targets.append((command, target))
+    }
+
+    /// `nonisolated` so the handler is not formed in a main-actor context: the SDK
+    /// types it as a plain (non-Sendable) block, so a closure built in this class would
+    /// inherit main-actor isolation and Swift 6 would trap if MediaPlayer called it on
+    /// another thread. The delivery thread is not documented, hence the explicit hop.
+    private nonisolated static func makeHandler(
+        owner: NowPlayingController,
+        action: @escaping @MainActor @Sendable (NowPlayingController) -> MPRemoteCommandHandlerStatus
+    ) -> @Sendable (MPRemoteCommandEvent) -> MPRemoteCommandHandlerStatus {
+        { [weak owner] _ in
+            guard let owner else { return .commandFailed }
+            let run: @Sendable () -> MPRemoteCommandHandlerStatus = {
+                MainActor.assumeIsolated { action(owner) }
             }
             return Thread.isMainThread ? run() : DispatchQueue.main.sync(execute: run)
         }
-        targets.append((command, target))
     }
 
     /// Applies a remote play/pause request and reports whether it took effect.
