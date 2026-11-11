@@ -14,4 +14,12 @@ final class ToneEngineEnsureRunningTests: XCTestCase {
         engine.stop()
         XCTAssertTrue(engine.ensureRunning())
     }
+
+    func testFollowPreferredRateChangeNeverStartsStoppedOutput() {
+        let engine = ToneEngine()
+        var lost = false
+        engine.onOutputLost = { lost = true }
+        engine.followPreferredRateChange()
+        XCTAssertFalse(lost)
+    }
 }

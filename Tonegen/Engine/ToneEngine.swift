@@ -134,6 +134,24 @@ final class ToneEngine {
         return false
     }
 
+    /// Re-reads the hardware rate after the session's preferred rate changed and, if the
+    /// generator no longer matches it, restarts output so it follows. The system usually
+    /// does this itself via a configuration change, but not reliably, and a generator at
+    /// the wrong rate would be resampled by the mixer. Does nothing unless playback is
+    /// intended, so it can never start audio the user has stopped; a stopped engine
+    /// follows the hardware on its next start. A restart failure reports through
+    /// `onOutputLost`.
+    func followPreferredRateChange() {
+        guard running else { return }
+        guard Self.hardwareSampleRate(of: engine) != sampleRate else { return }
+        // startHardware only follows the rate while the engine is stopped.
+        engine.stop()
+        if !startHardware() {
+            running = false
+            onOutputLost?()
+        }
+    }
+
     /// Call when an audio session interruption begins. The system has already
     /// silenced us; this records that and leaves the session alone so the
     /// matching interruption-ended notification still arrives.

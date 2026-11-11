@@ -11,13 +11,19 @@ struct TonegenApp: App {
     private let nowPlaying: NowPlayingController
 
     init() {
-        Self.configureAudioSession()
+        // Read straight from defaults: the store needs the engine, which needs the session
+        // configured first.
+        Self.configureAudioSession(sampleRate: TonegenStore.savedSampleRate())
         let eng = ToneEngine()
         engine = eng
         let st = TonegenStore(
             bridge: eng.bridge,
             startOutput: { eng.start() },
-            stopOutput: { eng.stop() }
+            stopOutput: { eng.stop() },
+            applySampleRate: { rate in
+                Self.setPreferredSampleRate(rate)
+                eng.followPreferredRateChange()
+            }
         )
         eng.onOutputLost = { [weak st] in st?.outputLost() }
         store = st
@@ -44,16 +50,32 @@ struct TonegenApp: App {
         }
     }
 
-    private static func configureAudioSession() {
+    /// Configures the session. `sampleRate` is a request; the route may run at another.
+    private static func configureAudioSession(sampleRate: Double) {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playback, mode: .default, options: [])
-            try session.setPreferredSampleRate(48000)
+            try session.setPreferredSampleRate(sampleRate)
             try session.setPreferredIOBufferDuration(0.005)
         } catch {
             os_log(
                 .error,
                 "TonegenApp: Audio session configuration failed: %{public}@",
+                error.localizedDescription
+            )
+        }
+    }
+
+    /// Updates only the preference; the session is not activated here, so a stopped
+    /// app does not take the audio route just to change a setting.
+    @MainActor
+    private static func setPreferredSampleRate(_ rate: Double) {
+        do {
+            try AVAudioSession.sharedInstance().setPreferredSampleRate(rate)
+        } catch {
+            os_log(
+                .error,
+                "TonegenApp: Setting preferred sample rate failed: %{public}@",
                 error.localizedDescription
             )
         }
@@ -156,7 +178,7 @@ struct TonegenApp: App {
     @MainActor
     private static func handleMediaServicesReset(engine: ToneEngine, store: TonegenStore) {
         let wasPlaying = store.playing
-        configureAudioSession()
+        configureAudioSession(sampleRate: store.requestedSampleRate)
         engine.rebuild()
         guard wasPlaying else { return }
         if !engine.start() { store.outputLost() }
