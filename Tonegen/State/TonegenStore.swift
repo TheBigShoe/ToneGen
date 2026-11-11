@@ -204,17 +204,17 @@ final class TonegenStore {
         }
     }
 
-    private func applyToChannels(_ side: ChannelSide, _ mutate: (ChannelState) -> Void) {
+    private func applyToChannels(_ side: ChannelSide, _ mutate: (inout ChannelState) -> Void) {
         switch side {
         case .left:
-            mutate(left)
-            if linked { mutate(right) }
+            mutate(&left)
+            if linked { mutate(&right) }
         case .right:
-            mutate(right)
-            if linked { mutate(left) }
+            mutate(&right)
+            if linked { mutate(&left) }
         case .both:
-            mutate(left)
-            mutate(right)
+            mutate(&left)
+            mutate(&right)
         }
     }
 
@@ -243,7 +243,7 @@ private extension ChannelState {
         )
     }
 
-    func apply(_ s: SettingsSnapshot.Channel) {
+    mutating func apply(_ s: SettingsSnapshot.Channel) {
         frequencyHz = s.frequencyHz
         amplitudeDbfs = s.amplitudeDbfs
         phaseFraction = s.phaseFraction
