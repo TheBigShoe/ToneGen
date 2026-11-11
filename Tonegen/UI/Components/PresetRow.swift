@@ -37,7 +37,7 @@ struct PresetRow: View {
     private func nudgeButton(
         _ label: String,
         spoken: String,
-        action: @escaping () -> Void
+        action: @escaping @MainActor @Sendable () -> Void
     ) -> some View {
         RepeatButton(label: label, spokenLabel: spoken, accentColor: accentColor, action: action)
     }
@@ -81,7 +81,7 @@ private struct RepeatButton: View {
     let label: String
     let spokenLabel: String
     var accentColor: Color
-    let action: () -> Void
+    let action: @MainActor @Sendable () -> Void
 
     @State private var timer: Timer?
 
@@ -123,7 +123,12 @@ private struct RepeatButton: View {
     private func startIfNeeded() {
         guard timer == nil else { return }
         action()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in action() }
+        let action = action
+        // A scheduled timer fires on the run loop it was added to — main, since gestures
+        // call this on main — so asserting main-actor isolation cannot trap.
+        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
+            MainActor.assumeIsolated { action() }
+        }
     }
 
     private func stopTimer() {
