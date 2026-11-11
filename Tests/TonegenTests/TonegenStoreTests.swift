@@ -7,15 +7,16 @@ final class TonegenStoreTests: XCTestCase {
     private var suiteName = ""
     private var defaults = UserDefaults.standard
 
-    override func setUp() {
-        super.setUp()
+    // Async so the overrides run on the main actor like the rest of the class.
+    override func setUp() async throws {
+        try await super.setUp()
         suiteName = "TonegenStoreTests-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suiteName) ?? .standard
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         defaults.removePersistentDomain(forName: suiteName)
-        super.tearDown()
+        try await super.tearDown()
     }
 
     // MARK: - Bridge sync
