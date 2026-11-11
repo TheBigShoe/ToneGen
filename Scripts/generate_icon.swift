@@ -13,7 +13,8 @@ let bmp = CGContext(
     bitsPerComponent: 8,
     bytesPerRow: size * 4,
     space: cs,
-    bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little
+    // No alpha channel: App Store Connect rejects icons that carry one.
+    bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little
         .rawValue
 )!
 
