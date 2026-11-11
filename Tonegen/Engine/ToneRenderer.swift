@@ -68,10 +68,76 @@ final class ToneRenderer {
         phaseSmL = PhaseSmoother(initial: 0, sampleRate: sr, timeConstantMs: 30)
         phaseSmR = PhaseSmoother(initial: 0, sampleRate: sr, timeConstantMs: 30)
         masterAmpSm = Smoother(initial: 0, sampleRate: sr, timeConstantMs: 10)
-        let fadeLength = max(1, Int(sr * Self.waveformFadeSeconds))
+        let fadeLength = Self.fadeLength(sampleRate: sr)
         xfadeL = WaveformCrossfade(initial: .sine, length: fadeLength)
         xfadeR = WaveformCrossfade(initial: .sine, length: fadeLength)
         self.bridge = bridge
+    }
+
+    /// Rate the renderer is currently generating at, in Hz.
+    var sampleRate: Float {
+        oscL.sampleRate
+    }
+
+    /// Moves every rate-dependent quantity to `newRate`, keeping all smoothed values,
+    /// targets, phase accumulators, crossfade progress and noise state.
+    ///
+    /// **Not thread-safe against `render`.** The caller must guarantee no render callback
+    /// is running or can start until this returns — `ToneEngine` only calls it after a
+    /// synchronous `AVAudioEngine.stop()`, with the engine not restarted until afterwards.
+    /// Nothing here runs on the render thread, so no lock or atomic is added to that path.
+    ///
+    /// The mute envelope is the one value that is reset: the hardware was stopped under a
+    /// live signal, so resuming at full level would step from silence to mid-waveform.
+    /// Restarting the envelope at 0 fades the output back in over its 5 ms instead.
+    func setSampleRate(_ newRate: Float) {
+        guard newRate.isFinite, newRate > 0, newRate != sampleRate else { return }
+        oscL.sampleRate = newRate
+        oscR.sampleRate = newRate
+        muteEnv.setSampleRate(newRate)
+        muteEnv.jump(to: 0)
+        freqSmL.setSampleRate(newRate)
+        freqSmR.setSampleRate(newRate)
+        ampSmL.setSampleRate(newRate)
+        ampSmR.setSampleRate(newRate)
+        muteGateL.setSampleRate(newRate)
+        muteGateR.setSampleRate(newRate)
+        phaseSmL.setSampleRate(newRate)
+        phaseSmR.setSampleRate(newRate)
+        masterAmpSm.setSampleRate(newRate)
+        let fadeLength = Self.fadeLength(sampleRate: newRate)
+        xfadeL.setLength(fadeLength)
+        xfadeR.setLength(fadeLength)
+    }
+
+    /// Current smoothed values — for tests and diagnostics only, never the render thread.
+    var smoothedState: SmoothedState {
+        SmoothedState(
+            envelope: muteEnv.value,
+            frequencyHzL: exp2f(freqSmL.value),
+            frequencyHzR: exp2f(freqSmR.value),
+            amplitudeDbL: ampSmL.value,
+            amplitudeDbR: ampSmR.value,
+            phaseL: phaseSmL.value,
+            phaseR: phaseSmR.value,
+            masterDb: masterAmpSm.value,
+            accumulatorL: oscL.phase,
+            accumulatorR: oscR.phase
+        )
+    }
+
+    /// Snapshot of the renderer's smoothed parameters and accumulators.
+    struct SmoothedState: Equatable {
+        var envelope: Float
+        var frequencyHzL: Float
+        var frequencyHzR: Float
+        var amplitudeDbL: Float
+        var amplitudeDbR: Float
+        var phaseL: Float
+        var phaseR: Float
+        var masterDb: Float
+        var accumulatorL: Float
+        var accumulatorR: Float
     }
 
     /// Called on the real-time audio thread — must not allocate, block, or dispatch.
@@ -204,6 +270,11 @@ final class ToneRenderer {
     /// Duration of the crossfade applied when a channel's waveform changes.
     static let waveformFadeSeconds: Float = 0.005
 
+    /// Crossfade length in samples at `sampleRate`.
+    static func fadeLength(sampleRate: Float) -> Int {
+        max(1, Int(sampleRate * waveformFadeSeconds))
+    }
+
     /// One sample of a channel's output waveform, blending old into new while `xfade` runs.
     @inline(__always)
     private static func channelSample(
@@ -262,8 +333,8 @@ struct WaveformCrossfade {
     /// Waveform being faded out. Meaningful only while `next` returns < 1.
     private(set) var previous: Waveform
     private var remaining = 0
-    private let length: Int
-    private let invLength: Float
+    private(set) var length: Int
+    private var invLength: Float
 
     init(initial: Waveform, length: Int) {
         current = initial
@@ -284,6 +355,19 @@ struct WaveformCrossfade {
         }
         remaining -= 1
         return 1 - Float(remaining) * invLength
+    }
+
+    /// Changes the fade length (after a sample-rate change). A fade in progress keeps
+    /// its blend position: `remaining` is rescaled so the weight does not jump.
+    mutating func setLength(_ newLength: Int) {
+        let clamped = max(1, newLength)
+        guard clamped != length else { return }
+        if remaining > 0 {
+            let progress = Float(remaining) * invLength
+            remaining = min(clamped, max(1, Int((progress * Float(clamped)).rounded())))
+        }
+        length = clamped
+        invLength = 1 / Float(clamped)
     }
 
     /// Switches immediately with no fade — only for when the output is silent anyway.

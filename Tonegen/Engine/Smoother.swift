@@ -4,7 +4,8 @@ import Foundation
 struct Smoother {
     private var current: Float
     var target: Float
-    private let alpha: Float
+    private var alpha: Float
+    private let timeConstantMs: Float
 
     /// - Parameters:
     ///   - initial: Starting value (also the initial target).
@@ -13,7 +14,26 @@ struct Smoother {
     init(initial: Float, sampleRate: Float, timeConstantMs: Float) {
         current = initial
         target = initial
-        alpha = 1 - expf(-1000 / (timeConstantMs * sampleRate))
+        self.timeConstantMs = timeConstantMs
+        alpha = Self.coefficient(sampleRate: sampleRate, timeConstantMs: timeConstantMs)
+    }
+
+    /// Re-derives the per-sample coefficient for a new rate so the time constant stays
+    /// the same in milliseconds. The current value and target are kept, so a rate change
+    /// continues the glide rather than restarting it.
+    mutating func setSampleRate(_ sampleRate: Float) {
+        alpha = Self.coefficient(sampleRate: sampleRate, timeConstantMs: timeConstantMs)
+    }
+
+    /// Lands on `value` immediately, leaving the target alone — only for when the output
+    /// is silent anyway (the mute envelope after the hardware was stopped under us).
+    mutating func jump(to value: Float) {
+        current = value
+    }
+
+    /// One-pole coefficient giving a time constant of `timeConstantMs` at `sampleRate`.
+    static func coefficient(sampleRate: Float, timeConstantMs: Float) -> Float {
+        1 - expf(-1000 / (timeConstantMs * sampleRate))
     }
 
     /// Distance below which the smoother lands exactly on its target.
@@ -52,7 +72,8 @@ struct PhaseSmoother {
     private var current: Float
     /// Target phase. Any real value is accepted; only its fractional position matters.
     var target: Float
-    private let alpha: Float
+    private var alpha: Float
+    private let timeConstantMs: Float
 
     /// - Parameters:
     ///   - initial: Starting phase (also the initial target).
@@ -61,7 +82,13 @@ struct PhaseSmoother {
     init(initial: Float, sampleRate: Float, timeConstantMs: Float) {
         current = Self.wrap(initial)
         target = initial
-        alpha = 1 - expf(-1000 / (timeConstantMs * sampleRate))
+        self.timeConstantMs = timeConstantMs
+        alpha = Smoother.coefficient(sampleRate: sampleRate, timeConstantMs: timeConstantMs)
+    }
+
+    /// Re-derives the coefficient for a new rate; position and target are kept.
+    mutating func setSampleRate(_ sampleRate: Float) {
+        alpha = Smoother.coefficient(sampleRate: sampleRate, timeConstantMs: timeConstantMs)
     }
 
     /// Returns the next smoothed phase in [0, 1) and advances internal state.

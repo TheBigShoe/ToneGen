@@ -3,7 +3,9 @@ import Foundation
 
 struct PhaseOscillator {
     var phase: Float = 0
-    let sampleRate: Float
+    /// Mutable so a hardware rate change keeps `phase`: the waveform continues from where
+    /// it was rather than restarting at 0.
+    var sampleRate: Float
 
     /// Advances phase by one sample and returns the new phase in [0, 1).
     @inline(__always)

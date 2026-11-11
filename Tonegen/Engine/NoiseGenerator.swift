@@ -19,6 +19,13 @@ struct WhiteNoise {
 
 // MARK: - Pink Noise (Paul Kellet economy filter)
 
+// The filter coefficients are fixed (Kellet fitted them at 44.1 kHz) and are not
+// re-derived when the output rate changes. Every pole frequency scales with the rate, so
+// the band over which the slope is −3 dB/octave scales too: its low edge sits near 9 Hz
+// at 44.1 kHz, ~10 Hz at 48 kHz and ~20 Hz at 96 kHz, and the upper edge only moves up.
+// The 20 Hz–20 kHz band therefore stays pink at every rate the hardware offers; below
+// 20 Hz at 88.2/96 kHz the spectrum flattens slightly. Accepted for v1.
+
 struct PinkNoise {
     private var b0: Float = 0, b1: Float = 0, b2: Float = 0
     private var b3: Float = 0, b4: Float = 0, b5: Float = 0, b6: Float = 0
