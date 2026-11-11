@@ -13,22 +13,33 @@ struct PresetRow: View {
 
     var body: some View {
         HStack(spacing: Tokens.Spacing.xs) {
-            nudgeButton("-OCT") { frequencyHz = clampFreq(frequencyHz / 2) }
-            nudgeButton("-ST") { frequencyHz = clampFreq(frequencyHz * semitoneDown) }
+            nudgeButton("-OCT", spoken: "Down one octave") {
+                frequencyHz = clampFreq(frequencyHz / 2)
+            }
+            nudgeButton("-ST", spoken: "Down one semitone") {
+                frequencyHz = clampFreq(frequencyHz * semitoneDown)
+            }
 
             ForEach(presets, id: \.1) { label, freq in
                 presetChip(label: label, freq: freq)
             }
 
-            nudgeButton("+ST") { frequencyHz = clampFreq(frequencyHz * semitoneUp) }
-            nudgeButton("+OCT") { frequencyHz = clampFreq(frequencyHz * 2) }
+            nudgeButton("+ST", spoken: "Up one semitone") {
+                frequencyHz = clampFreq(frequencyHz * semitoneUp)
+            }
+            nudgeButton("+OCT", spoken: "Up one octave") { frequencyHz = clampFreq(frequencyHz * 2)
+            }
         }
     }
 
     // MARK: - Nudge button with press-and-hold repeat at 4 Hz
 
-    private func nudgeButton(_ label: String, action: @escaping () -> Void) -> some View {
-        RepeatButton(label: label, accentColor: accentColor, action: action)
+    private func nudgeButton(
+        _ label: String,
+        spoken: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        RepeatButton(label: label, spokenLabel: spoken, accentColor: accentColor, action: action)
     }
 
     // MARK: - Preset chip
@@ -67,6 +78,7 @@ struct PresetRow: View {
 
 private struct RepeatButton: View {
     let label: String
+    let spokenLabel: String
     var accentColor: Color
     let action: () -> Void
 
@@ -98,6 +110,12 @@ private struct RepeatButton: View {
             // A view removed mid-press never receives the drag's onEnded, which would
             // leave the repeat timer firing against a dead view.
             .onDisappear { stopTimer() }
+            // The drag gesture is invisible to assistive tech, so expose a real button
+            // whose activation performs a single nudge (no hold-to-repeat needed).
+            .accessibilityElement()
+            .accessibilityLabel(spokenLabel)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { action() }
     }
 
     private func startIfNeeded() {
