@@ -9,4 +9,4 @@
 --disable trailingCommas
 --enable isEmpty
 --enable blankLinesBetweenImports
---exclude Tonegen/Resources,.build
+--exclude Tonegen/Resources,.build,build,.claude

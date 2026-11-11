@@ -8,10 +8,10 @@ generate:
 	xcodegen generate
 
 build: generate
-	xcodebuild $(XCARGS) -configuration Debug build | xcpretty || xcodebuild $(XCARGS) -configuration Debug build
+	xcodebuild $(XCARGS) -configuration Debug build
 
 test: generate
-	xcodebuild $(XCARGS) test | xcpretty || xcodebuild $(XCARGS) test
+	xcodebuild $(XCARGS) test
 
 lint:
 	swiftlint
