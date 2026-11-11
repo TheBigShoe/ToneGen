@@ -189,7 +189,7 @@ struct ContentView: View {
             store: store,
             scopeL: engine.scopeL,
             scopeR: engine.scopeR,
-            outputRate: OutputRate()
+            outputRate: OutputRate(sampleRate: engine.sampleRate)
         )
     }
 #endif

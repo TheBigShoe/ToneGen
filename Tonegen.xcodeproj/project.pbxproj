@@ -14,6 +14,7 @@
 		1ECE1DDBE2977BAF8E7CFF4E /* Waveform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794A3019B6E4BE75FCE77592 /* Waveform.swift */; };
 		1F8C9F6DE7837D0DB94E8E04 /* SampleRingBufferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8DE6100F90F813E529E555 /* SampleRingBufferTests.swift */; };
 		256270B19CAE43DA22C2B7B4 /* FrequencyDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = C96A04C779983DC0E7E757DB /* FrequencyDisplay.swift */; };
+		27A5E2391570396E30B529A5 /* OutputRateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B48213B5455927723E794A81 /* OutputRateTests.swift */; };
 		2EEA8783BDDD33607315BE17 /* PhaseOscillatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EF2611D77B6CD4A9E3945EA /* PhaseOscillatorTests.swift */; };
 		350898041B8BF55BFAA3E2C2 /* FreqSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF0C7CB066E89BC26739B44E /* FreqSlider.swift */; };
 		37BAADB60CBE4B2376EC6E19 /* ColorHex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 318D059130DF9A31AE3F5783 /* ColorHex.swift */; };
@@ -130,6 +131,7 @@
 		A368A4AED4D21D1C670BF038 /* ChannelState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelState.swift; sourceTree = "<group>"; };
 		AC8DE6100F90F813E529E555 /* SampleRingBufferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleRingBufferTests.swift; sourceTree = "<group>"; };
 		B0F8989C402921220E96F210 /* PolyBlep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolyBlep.swift; sourceTree = "<group>"; };
+		B48213B5455927723E794A81 /* OutputRateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputRateTests.swift; sourceTree = "<group>"; };
 		BBF9AE238D88253FA62DF645 /* ToneEngineSampleRateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToneEngineSampleRateTests.swift; sourceTree = "<group>"; };
 		BF083272EB54495CEBA48CF3 /* SettingsPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPersistenceTests.swift; sourceTree = "<group>"; };
 		BFC928D82A98D7AC20E24CF8 /* TonegenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TonegenTests.swift; sourceTree = "<group>"; };
@@ -321,6 +323,7 @@
 				BFDAB395A333BD21368A9887 /* FrequencyMathTests.swift */,
 				35CCA9AF4D8EAB1728FC0ADD /* NoiseGeneratorTests.swift */,
 				200A4F9B3F0672E94556AB10 /* NowPlayingSnapshotTests.swift */,
+				B48213B5455927723E794A81 /* OutputRateTests.swift */,
 				1603EDAC3CF91BC56CCD1BF9 /* ParameterSmoothingTests.swift */,
 				7EF2611D77B6CD4A9E3945EA /* PhaseOscillatorTests.swift */,
 				333B6ED5FE2D4A67B23BFADA /* PolyBlepTests.swift */,
@@ -511,6 +514,7 @@
 				9440CD2306646412CEED9A26 /* FrequencyMathTests.swift in Sources */,
 				9122BEC0D8CE77B03DFA0816 /* NoiseGeneratorTests.swift in Sources */,
 				6538F90DEAAEB5A71B1D73FD /* NowPlayingSnapshotTests.swift in Sources */,
+				27A5E2391570396E30B529A5 /* OutputRateTests.swift in Sources */,
 				5E62A21A1990B45600C9A0E0 /* ParameterSmoothingTests.swift in Sources */,
 				2EEA8783BDDD33607315BE17 /* PhaseOscillatorTests.swift in Sources */,
 				F69450F686EA5F654CDBE2EB /* PolyBlepTests.swift in Sources */,

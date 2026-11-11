@@ -21,18 +21,13 @@ struct TonegenApp: App {
         )
         eng.onOutputLost = { [weak st] in st?.outputLost() }
         store = st
-        let rate = OutputRate()
+        // The header shows the engine's render rate, which changes only when the engine
+        // moves its graph — not the session rate, which can lead it while stopped.
+        let rate = OutputRate(sampleRate: eng.sampleRate)
         outputRate = rate
-        // Engine config changes (e.g. a new hardware rate) can arrive without a route change.
-        NotificationCenter.default.addObserver(
-            forName: .AVAudioEngineConfigurationChange,
-            object: nil,
-            queue: .main
-        ) { _ in
-            MainActor.assumeIsolated { rate.refresh() }
-        }
+        eng.onSampleRateChange = { [weak rate] in rate?.update($0) }
         nowPlaying = NowPlayingController(store: st)
-        Self.observeAudioSession(engine: eng, store: st, outputRate: rate)
+        Self.observeAudioSession(engine: eng, store: st)
     }
 
     var body: some Scene {
@@ -64,11 +59,7 @@ struct TonegenApp: App {
         }
     }
 
-    private static func observeAudioSession(
-        engine: ToneEngine,
-        store: TonegenStore,
-        outputRate: OutputRate
-    ) {
+    private static func observeAudioSession(engine: ToneEngine, store: TonegenStore) {
         let nc = NotificationCenter.default
         let session = AVAudioSession.sharedInstance()
         nc.addObserver(
@@ -88,7 +79,7 @@ struct TonegenApp: App {
         ) { notification in
             let raw = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
             MainActor.assumeIsolated {
-                handleRouteChange(reason: raw, engine: engine, store: store, outputRate: outputRate)
+                handleRouteChange(reason: raw, engine: engine, store: store)
             }
         }
         nc.addObserver(
@@ -97,7 +88,7 @@ struct TonegenApp: App {
             queue: .main
         ) { _ in
             MainActor.assumeIsolated {
-                handleMediaServicesReset(engine: engine, store: store, outputRate: outputRate)
+                handleMediaServicesReset(engine: engine, store: store)
             }
         }
     }
@@ -142,10 +133,8 @@ struct TonegenApp: App {
     private static func handleRouteChange(
         reason raw: UInt?,
         engine: ToneEngine,
-        store: TonegenStore,
-        outputRate: OutputRate
+        store: TonegenStore
     ) {
-        outputRate.refresh()
         guard let raw, let reason = AVAudioSession.RouteChangeReason(rawValue: raw) else { return }
         switch reason {
         case .oldDeviceUnavailable:
@@ -165,15 +154,10 @@ struct TonegenApp: App {
     /// The media server crashed and restarted: every audio object is dead and the
     /// session has lost its configuration.
     @MainActor
-    private static func handleMediaServicesReset(
-        engine: ToneEngine,
-        store: TonegenStore,
-        outputRate: OutputRate
-    ) {
+    private static func handleMediaServicesReset(engine: ToneEngine, store: TonegenStore) {
         let wasPlaying = store.playing
         configureAudioSession()
         engine.rebuild()
-        outputRate.refresh()
         guard wasPlaying else { return }
         if !engine.start() { store.outputLost() }
     }
