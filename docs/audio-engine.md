@@ -53,6 +53,17 @@ stopped, and `rebuild()` after a media-services reset. If it differs from
 4. attaches a new source node at the new rate, sharing the same renderer;
 5. publishes the rate through `onSampleRateChange` (the header label).
 
+**Choosing a rate.** The user picks 44.1, 48, 88.2, 96, 176.4 or 192 kHz from
+the header menu. This is stored as `TonegenStore.requestedSampleRate` (default
+48 kHz) and applied with `AVAudioSession.setPreferredSampleRate`, which is only a
+*request*: iOS honours it if the current route supports it (USB interfaces and
+some DACs do; the built-in speaker generally stays at 48 kHz). The generator
+never follows the request, only the hardware: `ToneEngine.followPreferredRateChange()`
+restarts a playing engine if the hardware rate no longer matches, and a stopped
+engine follows on its next start (the session reports a route's real rate only
+while active, so the header may lag until Play). The header shows the actual rate
+and appends the request when they differ, e.g. "48 kHz · 96 req".
+
 Because the renderer is only mutated while no callback can run, the render
 path gains no lock, atomic or flag. `ToneRenderer.setSampleRate` is not
 thread-safe and must never be called with the engine running.

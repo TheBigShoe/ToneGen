@@ -35,6 +35,9 @@ changing it. `make test` runs the unit tests.
   iPad the two channels sit side by side with a LINK / SPLIT switch.
 - Pick a waveform, set the frequency with the slider, the step buttons or a
   preset, then set level and phase.
+- Tap the sample rate in the header to request 44.1 to 192 kHz. Only rates the
+  current output supports take effect; otherwise the header keeps showing the rate
+  actually running, followed by the request (for example "48 kHz · 96 req").
 - Start with the volume low: sustained tones at high level can damage hearing
   and loudspeakers.
 
