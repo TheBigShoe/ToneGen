@@ -109,12 +109,20 @@ accumulator. This means changing the phase knob doesn't disrupt continuity:
 
 ```swift
 let p = osc.step(frequency: smoothedFreq)
-let pOffset = (p + smoothedPhaseFraction).truncatingRemainder(dividingBy: 1.0)
+let offset = phaseSmoother.next()              // [0, 1)
+let pOffset = p + offset >= 1 ? p + offset - 1 : p + offset
 let sample = waveform(pOffset)
 ```
 
 The phase parameter is also smoothed. Without smoothing, dragging the phase
 slider produces audible zipper noise.
+
+The offset lives on a circle (1 ≡ 0), so it uses `PhaseSmoother`, not the
+plain `Smoother`. A linear smoother would take 0.95 → 0.05 as a −0.9 move and
+sweep through 0.5 — briefly putting the channel in anti-phase. `PhaseSmoother`
+computes the signed shortest distance (`delta -= delta.rounded()`, so it is in
+[−0.5, 0.5]), steps along it, and re-wraps its state into [0, 1) every sample
+so it cannot drift unbounded. The UI range stays 0…1.
 
 ## Waveform Algorithms
 

@@ -59,4 +59,58 @@ final class SmootherTests: XCTestCase {
         }
         XCTAssertEqual(s.value, -120)
     }
+
+    // MARK: - PhaseSmoother
+
+    func testPhaseWrapsForwardTheShortWay() {
+        // 0.95 → 0.05 is +0.1 across the wrap, not −0.9 through 0.5.
+        let path = phasePath(from: 0.95, to: 0.05)
+        for v in path {
+            XCTAssertTrue(v >= 0.95 - 1e-6 || v <= 0.05 + 1e-6, "Left the short arc: \(v)")
+        }
+        XCTAssertEqual(path.last ?? -1, 0.05, accuracy: 1e-6)
+    }
+
+    func testPhaseWrapsBackwardTheShortWay() {
+        let path = phasePath(from: 0.05, to: 0.95)
+        for v in path {
+            XCTAssertTrue(v >= 0.95 - 1e-6 || v <= 0.05 + 1e-6, "Left the short arc: \(v)")
+        }
+        XCTAssertEqual(path.last ?? -1, 0.95, accuracy: 1e-6)
+    }
+
+    func testPhaseNonWrappingMoveIsMonotonic() {
+        // 0.2 → 0.6 is shorter going up (0.4) than down (0.6).
+        let path = phasePath(from: 0.2, to: 0.6)
+        var prev: Float = 0.2
+        for v in path {
+            XCTAssertGreaterThanOrEqual(v, prev)
+            XCTAssertLessThanOrEqual(v, 0.6 + 1e-6)
+            prev = v
+        }
+        XCTAssertEqual(path.last ?? -1, 0.6, accuracy: 1e-6)
+    }
+
+    func testPhaseStateStaysWrappedUnderRepeatedWraps() {
+        // Keep pushing the target forward by 0.3 — the unwrapped phase would grow without
+        // bound; the smoothed state must stay in [0, 1).
+        var s = PhaseSmoother(initial: 0, sampleRate: 48000, timeConstantMs: 1)
+        var target: Float = 0
+        for _ in 0 ..< 1000 {
+            target += 0.3
+            if target >= 1 { target -= 1 }
+            s.target = target
+            for _ in 0 ..< 100 {
+                let v = s.next()
+                XCTAssertGreaterThanOrEqual(v, 0)
+                XCTAssertLessThan(v, 1)
+            }
+        }
+    }
+
+    private func phasePath(from start: Float, to end: Float) -> [Float] {
+        var s = PhaseSmoother(initial: start, sampleRate: 48000, timeConstantMs: 30)
+        s.target = end
+        return (0 ..< 48000).map { _ in s.next() }
+    }
 }

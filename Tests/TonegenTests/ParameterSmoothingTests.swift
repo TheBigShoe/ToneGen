@@ -153,6 +153,34 @@ final class ParameterSmoothingTests: XCTestCase {
         XCTAssertTrue(out.allSatisfy { $0 == 0 }, "Levels at the floor must be digital silence")
     }
 
+    // MARK: - Phase offset smoothing
+
+    func testPhaseOffsetTakesShortestPathAcrossWrap() {
+        // L and R are identical sines at 0.95. Moving L to 0.05 is a 0.1-cycle move
+        // across the wrap: |L − R| must never exceed 2·A·sin(π·0.1). The long way round
+        // would pass through 0.5 (anti-phase), where |L − R| reaches 2·A.
+        var params = squareParams()
+        params.left.waveform = .sine
+        params.right.waveform = .sine
+        params.left.frequencyHz = 440
+        params.right.frequencyHz = 440
+        params.left.phaseFraction = 0.95
+        params.right.phaseFraction = 0.95
+        let (renderer, bridge) = settledRenderer(params)
+
+        params.left.phaseFraction = 0.05
+        bridge.update(params)
+        var left = [Float](repeating: 0, count: 14400)
+        var right = [Float](repeating: 0, count: 14400)
+        renderBlock(renderer, left: &left, right: &right)
+
+        let amp: Float = pow(10, Float(-12) / 20)
+        let bound = 2 * amp * sinf(.pi * 0.1) * 1.01
+        let maxDiff = zip(left, right).map { abs($0 - $1) }.max() ?? 0
+        XCTAssertLessThan(maxDiff, bound)
+        XCTAssertGreaterThan(maxDiff, bound * 0.9, "L should have moved by 0.1 cycle")
+    }
+
     // MARK: - Helpers
 
     private func squareParams() -> EngineParams {

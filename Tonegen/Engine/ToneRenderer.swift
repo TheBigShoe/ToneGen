@@ -24,9 +24,10 @@ final class ToneRenderer {
     private var muteGateL: Smoother
     private var muteGateR: Smoother
 
-    // Per-channel phase-offset smoothers — values are fractions in [0, 1).
-    private var phaseSmL: Smoother
-    private var phaseSmR: Smoother
+    // Per-channel phase-offset smoothers — values are fractions in [0, 1), moving the
+    // short way round the circle so a 0.95 → 0.05 change doesn't sweep through 0.5.
+    private var phaseSmL: PhaseSmoother
+    private var phaseSmR: PhaseSmoother
 
     /// Master gain smoother — dBFS, same treatment as the channel amplitudes.
     private var masterAmpSm: Smoother
@@ -59,8 +60,8 @@ final class ToneRenderer {
         ampSmR = Smoother(initial: -12, sampleRate: sr, timeConstantMs: 10)
         muteGateL = Smoother(initial: 1, sampleRate: sr, timeConstantMs: 10)
         muteGateR = Smoother(initial: 1, sampleRate: sr, timeConstantMs: 10)
-        phaseSmL = Smoother(initial: 0, sampleRate: sr, timeConstantMs: 30)
-        phaseSmR = Smoother(initial: 0, sampleRate: sr, timeConstantMs: 30)
+        phaseSmL = PhaseSmoother(initial: 0, sampleRate: sr, timeConstantMs: 30)
+        phaseSmR = PhaseSmoother(initial: 0, sampleRate: sr, timeConstantMs: 30)
         masterAmpSm = Smoother(initial: 0, sampleRate: sr, timeConstantMs: 10)
         self.bridge = bridge
     }
@@ -128,7 +129,7 @@ final class ToneRenderer {
                 let dtL = freqL / sr
                 sL = Self.tonal(
                     waveL,
-                    phase: (tL + phL).truncatingRemainder(dividingBy: 1),
+                    phase: Self.offsetPhase(tL, phL),
                     dt: dtL
                 )
             }
@@ -141,7 +142,7 @@ final class ToneRenderer {
                 let dtR = freqR / sr
                 sR = Self.tonal(
                     waveR,
-                    phase: (tR + phR).truncatingRemainder(dividingBy: 1),
+                    phase: Self.offsetPhase(tR, phR),
                     dt: dtR
                 )
             }
@@ -157,6 +158,16 @@ final class ToneRenderer {
         scopeR.write(UnsafeBufferPointer(start: outR, count: frames))
 
         silence.pointee = false
+    }
+
+    // MARK: - Phase
+
+    /// Applies the user phase offset to the accumulator phase. Both inputs are in [0, 1),
+    /// so one conditional subtract replaces `fmod` and the result stays in [0, 1).
+    @inline(__always)
+    static func offsetPhase(_ t: Float, _ offset: Float) -> Float {
+        let p = t + offset
+        return p >= 1 ? p - 1 : p
     }
 
     // MARK: - Gain
