@@ -8,6 +8,7 @@ struct TonegenApp: App {
     private let engine: ToneEngine
     private let store: TonegenStore
     private let outputRate: OutputRate
+    private let nowPlaying: NowPlayingController
 
     init() {
         Self.configureAudioSession()
@@ -30,6 +31,7 @@ struct TonegenApp: App {
         ) { _ in
             MainActor.assumeIsolated { rate.refresh() }
         }
+        nowPlaying = NowPlayingController(store: st)
         Self.observeAudioSession(engine: eng, store: st, outputRate: rate)
     }
 
@@ -41,6 +43,9 @@ struct TonegenApp: App {
                 scopeR: engine.scopeR,
                 outputRate: outputRate
             )
+            // Keeps lock-screen state in step however playing changed (UI, remote
+            // command, interruption or output loss).
+            .onChange(of: store.playing) { nowPlaying.refresh() }
         }
     }
 
