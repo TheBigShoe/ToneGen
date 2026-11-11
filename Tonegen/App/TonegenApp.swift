@@ -167,7 +167,14 @@ struct TonegenApp: App {
             // The system can stop the engine on these without a configuration-change
             // notification, which would leave the UI claiming to generate in silence.
             guard store.playing else { return }
-            if !engine.ensureRunning() { store.outputLost() }
+            if !engine.ensureRunning() {
+                store.outputLost()
+                return
+            }
+            // A new route (or a rate request the hardware applied late) can change the
+            // hardware rate while the engine keeps running; without this the mixer would
+            // silently resample the tone. A failed restart reports through onOutputLost.
+            engine.followPreferredRateChange()
         default:
             break
         }
