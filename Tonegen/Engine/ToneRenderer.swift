@@ -37,7 +37,7 @@ final class ToneRenderer {
     private let bridge: ParamsBridge
     private var lastParams = EngineParams()
 
-    /// Scope feeds — pushed every sample, read by the display thread at ~60 Hz.
+    /// Scope feeds — written once per render block, read by the display thread at ~60 Hz.
     let scopeL = SampleRingBuffer(capacity: 4096)
     let scopeR = SampleRingBuffer(capacity: 4096)
 
@@ -140,9 +140,11 @@ final class ToneRenderer {
             let outSampleR = sR * ampR * masterAmp * env
             outL[n] = outSampleL
             outR[n] = outSampleR
-            scopeL.push(outSampleL)
-            scopeR.push(outSampleR)
         }
+
+        // One publish per channel per buffer keeps lock traffic off the per-sample path.
+        scopeL.write(UnsafeBufferPointer(start: outL, count: frames))
+        scopeR.write(UnsafeBufferPointer(start: outR, count: frames))
 
         silence.pointee = false
     }
