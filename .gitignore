@@ -1,0 +1,23 @@
+# Xcode build output
+build/
+DerivedData/
+
+# Xcode user-specific state
+*.xcuserstate
+xcuserdata/
+**/*.xcuserdata/
+
+# Xcode project-level checkout files
+*.xccheckout
+*.xcscmblueprint
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Claude Code local settings (contains machine-specific paths and permissions)
+.claude/settings.local.json
