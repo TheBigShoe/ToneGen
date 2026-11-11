@@ -275,7 +275,10 @@ struct Smoother {
 
     @inline(__always)
     mutating func next() -> Float {
-        current += alpha * (target - current)
+        let delta = target - current
+        let stepped = current + alpha * delta
+        // Snap: see below.
+        current = (abs(delta) <= 1e-6 || stepped == current) ? target : stepped
         return current
     }
 }
@@ -286,10 +289,16 @@ Time constants:
 | Parameter   | Time constant | Why                                            |
 |-------------|---------------|------------------------------------------------|
 | Frequency   | 20 ms         | Fast enough to feel responsive, slow enough not to chirp |
-| Amplitude   | 10 ms         | Fast; users notice gain lag                    |
+| Amplitude   | 10 ms (in dB) | Fast; users notice gain lag                    |
 | Phase       | 30 ms         | Phase changes can shock; longer = gentler      |
-| Master gain | 10 ms         | Same as channel amplitude                      |
+| Master gain | 10 ms (in dB) | Same as channel amplitude                      |
+| Channel mute| 10 ms (linear gate) | Even fade, ends in exact silence         |
 | Mute env    | 5 ms          | Quick but click-free                           |
+
+The smoother **snaps** onto its target once the remaining distance is ≤ 1e-6
+or a step no longer changes the Float value. Without that a one-pole filter
+stalls a few ulps short (at −120 one ulp is ≈ 8e-6), so a gate driven to 0
+would never output true digital silence.
 
 **Smooth frequency in the log domain.** Linear smoothing of frequency biases
 the trajectory toward the lower freq. Smooth `log2(f)` and exponentiate back:
@@ -301,6 +310,25 @@ let inc = f / sampleRate
 ```
 
 This is one of the rules people get wrong; copy this pattern.
+
+**Smooth amplitude in dBFS, convert per sample.** Channel amplitude and master
+gain smoothers hold dBFS (targets clamped to the −120 dB floor). Each sample
+converts the smoothed value to a linear factor:
+
+```swift
+ampSmoother.target = max(amplitudeDbfs, -120)
+let gain = dbToGain(ampSmoother.next())   // exp2f(dB · log₂10/20) ≡ pow(10, dB/20)
+                                          // exactly 0 at or below −120 dB
+```
+
+Smoothing the linear factor instead would make a −12 → −48 dB drag spend most
+of its time near the top of the range and then collapse at the end.
+
+**Mute is a gate, not a level.** Channel mute does not drive the dB smoother
+to the floor: a dB-domain one-pole heading 100+ dB away loses most of the
+level in its first millisecond, which ticks. Instead each channel has a
+separate linear 0…1 gate smoother (10 ms) multiplied in alongside the gain.
+It fades evenly and, because the smoother snaps, ends at exactly 0.
 
 ## Click-Free Start / Stop
 

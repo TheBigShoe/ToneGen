@@ -89,7 +89,110 @@ final class ParameterSmoothingTests: XCTestCase {
         )
     }
 
+    // MARK: - Amplitude smoothing (dB domain)
+
+    func testChannelAmplitudeSmoothsInDecibels() {
+        // A 10 Hz square is flat at ±gain between edges, so |sample| reads the gain directly.
+        var params = squareParams()
+        let (renderer, bridge) = settledRenderer(params)
+
+        params.left.amplitudeDbfs = -48
+        bridge.update(params)
+        let out = render(renderer, frames: 480) // 1τ at 10 ms
+
+        // dB-domain one-pole after 1τ: −12 + (−36)(1 − e⁻¹) ≈ −34.76 dB.
+        // Smoothing linear gain instead would sit near −19.8 dB here.
+        let expected: Float = -12 + -36 * (1 - expf(-1))
+        XCTAssertEqual(gainDb(out, at: 479), expected, accuracy: 0.3)
+    }
+
+    func testMasterGainSmoothsInDecibels() {
+        var params = squareParams()
+        let (renderer, bridge) = settledRenderer(params)
+
+        params.masterGainDbfs = -40
+        bridge.update(params)
+        let out = render(renderer, frames: 480)
+
+        let expected: Float = -12 + -40 * (1 - expf(-1))
+        XCTAssertEqual(gainDb(out, at: 479), expected, accuracy: 0.3)
+    }
+
+    func testChannelMuteIsClickFreeAndTrulySilent() {
+        // 10 Hz sine: its own largest sample step is ≈ 3e-4 at −12 dBFS, so any
+        // larger step would come from the mute gate itself.
+        var params = squareParams()
+        params.left.waveform = .sine
+        params.right.waveform = .sine
+        let (renderer, bridge) = settledRenderer(params)
+        let before = render(renderer, frames: 1)
+
+        params.left.muted = true
+        bridge.update(params)
+        let fade = render(renderer, frames: 14400) // 300 ms
+        XCTAssertLessThan(maxStep(before + fade), 0.001, "Mute must ramp, not step")
+
+        let silent = render(renderer, frames: 4800)
+        XCTAssertTrue(silent.allSatisfy { $0 == 0 }, "Muted channel must be digital silence")
+
+        params.left.muted = false
+        bridge.update(params)
+        let reopen = render(renderer, frames: 4800)
+        XCTAssertLessThan(maxStep(silent + reopen), 0.001, "Unmute must ramp, not step")
+        XCTAssertGreaterThan(reopen.map(abs).max() ?? 0, 0.2, "Unmute must restore the level")
+    }
+
+    func testLevelBelowFloorIsTrulySilent() {
+        var params = squareParams()
+        let (renderer, bridge) = settledRenderer(params)
+
+        params.left.amplitudeDbfs = -200
+        bridge.update(params)
+        _ = render(renderer, frames: 24000)
+        let out = render(renderer, frames: 4800)
+        XCTAssertTrue(out.allSatisfy { $0 == 0 }, "Levels at the floor must be digital silence")
+    }
+
     // MARK: - Helpers
+
+    private func squareParams() -> EngineParams {
+        var params = EngineParams()
+        params.playing = true
+        params.left.waveform = .square
+        params.right.waveform = .square
+        params.left.frequencyHz = 10
+        params.right.frequencyHz = 10
+        return params
+    }
+
+    /// Renderer that has run long enough (0.5 s = 25τ of the slowest smoother) for every
+    /// smoother to have settled on `params`.
+    private func settledRenderer(_ params: EngineParams) -> (ToneRenderer, ParamsBridge) {
+        let bridge = ParamsBridge()
+        bridge.update(params)
+        let renderer = ToneRenderer(sampleRate: sampleRate, bridge: bridge)
+        _ = render(renderer, frames: 24000)
+        return (renderer, bridge)
+    }
+
+    /// Renders `frames` samples and returns the left channel.
+    private func render(_ renderer: ToneRenderer, frames: Int) -> [Float] {
+        var left = [Float](repeating: 0, count: frames)
+        var right = [Float](repeating: 0, count: frames)
+        renderBlock(renderer, left: &left, right: &right)
+        return left
+    }
+
+    /// Gain in dB at `index`, read as the median |sample| of a 5-sample window so a
+    /// square edge landing in the window cannot skew it.
+    private func gainDb(_ samples: [Float], at index: Int) -> Float {
+        let window = samples[max(0, index - 4) ... index].map(abs).sorted()
+        return 20 * log10f(window[window.count / 2])
+    }
+
+    private func maxStep(_ samples: [Float]) -> Float {
+        zip(samples, samples.dropFirst()).map { abs($1 - $0) }.max() ?? 0
+    }
 
     private func makeBridge(playing: Bool, waveform: Waveform, freq: Float) -> ParamsBridge {
         let bridge = ParamsBridge()

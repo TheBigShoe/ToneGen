@@ -12,16 +12,23 @@ final class ToneRenderer {
     private var freqSmL: Smoother
     private var freqSmR: Smoother
 
-    // Per-channel amplitude smoothers — targets and values are linear (not dBFS).
-    // Conversion from dBFS to linear happens once per buffer when updating the target.
+    // Per-channel amplitude smoothers — targets and values are dBFS, clamped to
+    // `gainFloorDb`. Smoothing in dB makes a gain drag sound even across the range;
+    // the linear factor is derived per sample from the smoothed value.
     private var ampSmL: Smoother
     private var ampSmR: Smoother
+
+    // Per-channel mute gates — linear 0…1. Mute is a gate, not a level: driving the dB
+    // smoother to the floor would collapse most of the fade into its first millisecond,
+    // whereas a linear gate fades evenly and lands on exactly 0 (the smoother snaps).
+    private var muteGateL: Smoother
+    private var muteGateR: Smoother
 
     // Per-channel phase-offset smoothers — values are fractions in [0, 1).
     private var phaseSmL: Smoother
     private var phaseSmR: Smoother
 
-    /// Master gain smoother — linear.
+    /// Master gain smoother — dBFS, same treatment as the channel amplitudes.
     private var masterAmpSm: Smoother
 
     // Phase accumulators — continuous, never reset.
@@ -43,17 +50,18 @@ final class ToneRenderer {
 
     init(sampleRate: Float, bridge: ParamsBridge) {
         let sr = sampleRate
-        let initLinAmp = pow(10, Float(-12) / 20) // -12 dBFS default
         oscL = PhaseOscillator(sampleRate: sr)
         oscR = PhaseOscillator(sampleRate: sr)
         muteEnv = Smoother(initial: 0, sampleRate: sr, timeConstantMs: 5)
         freqSmL = Smoother(initial: log2f(440), sampleRate: sr, timeConstantMs: 20)
         freqSmR = Smoother(initial: log2f(440), sampleRate: sr, timeConstantMs: 20)
-        ampSmL = Smoother(initial: initLinAmp, sampleRate: sr, timeConstantMs: 10)
-        ampSmR = Smoother(initial: initLinAmp, sampleRate: sr, timeConstantMs: 10)
+        ampSmL = Smoother(initial: -12, sampleRate: sr, timeConstantMs: 10)
+        ampSmR = Smoother(initial: -12, sampleRate: sr, timeConstantMs: 10)
+        muteGateL = Smoother(initial: 1, sampleRate: sr, timeConstantMs: 10)
+        muteGateR = Smoother(initial: 1, sampleRate: sr, timeConstantMs: 10)
         phaseSmL = Smoother(initial: 0, sampleRate: sr, timeConstantMs: 30)
         phaseSmR = Smoother(initial: 0, sampleRate: sr, timeConstantMs: 30)
-        masterAmpSm = Smoother(initial: 1, sampleRate: sr, timeConstantMs: 10)
+        masterAmpSm = Smoother(initial: 0, sampleRate: sr, timeConstantMs: 10)
         self.bridge = bridge
     }
 
@@ -73,11 +81,13 @@ final class ToneRenderer {
         muteEnv.target = p.playing ? 1 : 0
         freqSmL.target = log2f(max(p.left.frequencyHz, 1))
         freqSmR.target = log2f(max(p.right.frequencyHz, 1))
-        ampSmL.target = p.left.muted ? 0 : pow(10, p.left.amplitudeDbfs / 20)
-        ampSmR.target = p.right.muted ? 0 : pow(10, p.right.amplitudeDbfs / 20)
+        ampSmL.target = max(p.left.amplitudeDbfs, Self.gainFloorDb)
+        ampSmR.target = max(p.right.amplitudeDbfs, Self.gainFloorDb)
+        muteGateL.target = p.left.muted ? 0 : 1
+        muteGateR.target = p.right.muted ? 0 : 1
         phaseSmL.target = p.left.phaseFraction
         phaseSmR.target = p.right.phaseFraction
-        masterAmpSm.target = pow(10, p.masterGainDbfs / 20)
+        masterAmpSm.target = max(p.masterGainDbfs, Self.gainFloorDb)
 
         let abl = UnsafeMutableAudioBufferListPointer(buffers)
         guard abl.count >= 2,
@@ -98,9 +108,9 @@ final class ToneRenderer {
             let env = muteEnv.next()
             let freqL = exp2f(freqSmL.next())
             let freqR = exp2f(freqSmR.next())
-            let ampL = ampSmL.next()
-            let ampR = ampSmR.next()
-            let masterAmp = masterAmpSm.next()
+            let ampL = Self.dbToGain(ampSmL.next()) * muteGateL.next()
+            let ampR = Self.dbToGain(ampSmR.next()) * muteGateR.next()
+            let masterAmp = Self.dbToGain(masterAmpSm.next())
             let phL = phaseSmL.next()
             let phR = phaseSmR.next()
 
@@ -147,6 +157,24 @@ final class ToneRenderer {
         scopeR.write(UnsafeBufferPointer(start: outR, count: frames))
 
         silence.pointee = false
+    }
+
+    // MARK: - Gain
+
+    /// Gain floor. Levels at or below it are treated as true silence rather than −120 dB.
+    static let gainFloorDb: Float = -120
+
+    /// log₂(10) / 20 — lets `exp2f` stand in for `pow(10, dB / 20)`, which it equals
+    /// exactly in real arithmetic but evaluates more cheaply per sample.
+    private static let dbToLog2Gain: Float = 0.166_096_4
+
+    /// Converts a smoothed dBFS value to the linear sample multiplier.
+    ///
+    /// Returns exactly 0 at the floor so a level parked there is digital silence; the
+    /// smoother snaps onto the floor, so the hand-off from 1e-6 to 0 is a −120 dB step.
+    @inline(__always)
+    static func dbToGain(_ db: Float) -> Float {
+        db <= gainFloorDb ? 0 : exp2f(db * dbToLog2Gain)
     }
 
     // MARK: - Tonal waveforms — t ∈ [0,1), output ∈ [-1, 1]

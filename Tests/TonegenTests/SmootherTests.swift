@@ -39,4 +39,24 @@ final class SmootherTests: XCTestCase {
             prev = v
         }
     }
+
+    /// A gate driven to 0 must reach exactly 0, not hover at a denormal.
+    func testLandsExactlyOnZero() {
+        var s = Smoother(initial: 1, sampleRate: 48000, timeConstantMs: 10)
+        s.target = 0
+        for _ in 0 ..< 48000 {
+            _ = s.next()
+        }
+        XCTAssertEqual(s.value, 0)
+    }
+
+    /// Far from zero one ulp exceeds the snap distance; the smoother must not stall short.
+    func testLandsExactlyOnLargeMagnitudeTarget() {
+        var s = Smoother(initial: -12, sampleRate: 48000, timeConstantMs: 10)
+        s.target = -120
+        for _ in 0 ..< 48000 {
+            _ = s.next()
+        }
+        XCTAssertEqual(s.value, -120)
+    }
 }
