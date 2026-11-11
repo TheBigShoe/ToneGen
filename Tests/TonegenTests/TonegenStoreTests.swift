@@ -117,12 +117,15 @@ final class TonegenStoreTests: XCTestCase {
     }
 
     func testSuccessfulStartClearsFailure() {
-        var succeed = false
+        // A box rather than a captured `var`: the output closures are Sendable, and a
+        // Sendable closure may not capture a variable that is mutated afterwards.
+        final class Outcome { var succeed = false }
+        let outcome = Outcome()
         let store = TonegenStore(
-            bridge: ParamsBridge(), startOutput: { succeed }, defaults: defaults
+            bridge: ParamsBridge(), startOutput: { outcome.succeed }, defaults: defaults
         )
         store.setPlaying(true)
-        succeed = true
+        outcome.succeed = true
         store.setPlaying(true)
         XCTAssertTrue(store.playing)
         XCTAssertFalse(store.outputFailed)
