@@ -26,10 +26,10 @@ final class ToneEngine {
 
     /// Called when output was live and could not be brought back after the system
     /// stopped the engine (for example a hardware change that failed to restart).
-    var onOutputLost: (() -> Void)?
+    var onOutputLost: (@MainActor () -> Void)?
 
     /// Called after the graph moved to a new rate, with that rate in Hz.
-    var onSampleRateChange: ((Double) -> Void)?
+    var onSampleRateChange: (@MainActor (Double) -> Void)?
 
     /// Rate the graph and renderer generate at, in Hz. Changes only between a hardware
     /// stop and the following start.
