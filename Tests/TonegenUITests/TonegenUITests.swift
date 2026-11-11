@@ -211,4 +211,41 @@ final class TonegenUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Play"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.state, .runningForeground)
     }
+
+    // MARK: - Sample rate menu
+
+    private var rateMenu: XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "sampleRateMenu").firstMatch
+    }
+
+    private func chooseRate(_ title: String) {
+        XCTAssertTrue(rateMenu.waitForExistence(timeout: 5))
+        rateMenu.tap()
+        let item = app.buttons[title]
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "Menu item \(title) missing")
+        item.tap()
+    }
+
+    func testPickingARateKeepsAppRunningAndReportsIt() {
+        chooseRate("44.1 kHz")
+        XCTAssertEqual(app.state, .runningForeground)
+        // The simulator may or may not honour the request; either way the value must
+        // state the rate as actual or as requested.
+        let value = rateMenu.value as? String ?? ""
+        XCTAssertTrue(value.contains("44.1"), "Menu value was \(value)")
+    }
+
+    func testPickingARateWhilePlayingKeepsPlaying() {
+        app.buttons["Play"].tap()
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
+        chooseRate("96 kHz")
+        XCTAssertEqual(app.state, .runningForeground)
+        // Give a restart at a new rate time to fail, if it is going to.
+        sleep(1)
+        XCTAssertTrue(app.buttons["Pause"].exists)
+        let value = rateMenu.value as? String ?? ""
+        XCTAssertTrue(value.contains("96") || value.contains("kHz"), "Menu value was \(value)")
+        app.buttons["Pause"].tap()
+        XCTAssertTrue(app.buttons["Play"].waitForExistence(timeout: 5))
+    }
 }
