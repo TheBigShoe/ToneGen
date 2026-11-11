@@ -188,6 +188,7 @@ struct ChannelView: View {
                             )
                     )
             )
+            .expandedHitArea()
             .animation(.easeOut(duration: 0.2), value: muted)
         }
         .buttonStyle(.plain)

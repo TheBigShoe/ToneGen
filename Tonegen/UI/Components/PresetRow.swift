@@ -68,6 +68,7 @@ struct PresetRow: View {
                                 )
                         )
                 )
+                .expandedHitArea(maxHorizontalGrowth: Tokens.Spacing.xs / 2)
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.impact(weight: .light), trigger: active)
@@ -107,6 +108,7 @@ private struct RepeatButton: View {
                     .onChanged { _ in startIfNeeded() }
                     .onEnded { _ in stopTimer() }
             )
+            .expandedHitArea(maxHorizontalGrowth: Tokens.Spacing.xs / 2)
             // A view removed mid-press never receives the drag's onEnded, which would
             // leave the repeat timer firing against a dead view.
             .onDisappear { stopTimer() }

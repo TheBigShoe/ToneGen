@@ -64,6 +64,7 @@ struct ChannelTabs: View {
                         )
                         .padding(2)
                 )
+                .expandedHitArea()
                 .animation(.easeOut(duration: 0.15), value: active)
         }
         .buttonStyle(.plain)

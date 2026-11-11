@@ -100,6 +100,7 @@ struct MasterSection: View {
                             )
                     )
             )
+            .expandedHitArea()
             .animation(.easeOut(duration: 0.15), value: store.linked)
         }
         .buttonStyle(.plain)

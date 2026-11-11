@@ -50,6 +50,7 @@
 		C12B6C374211594B6EDD377B /* GrainOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67ACF15B1D3C70B153522FAD /* GrainOverlay.swift */; };
 		C35A446F61EE3C130E831AD3 /* ThemePreviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C15E001ADE1326248CB5AC4 /* ThemePreviewScreen.swift */; };
 		C5090B8B5E2886871564A8B5 /* ToneEngineEnsureRunningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54392437726894BC909EF583 /* ToneEngineEnsureRunningTests.swift */; };
+		CA8B9DB0773ED07604896A1D /* HitArea.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E8F4326C4A7F40D3D061EC /* HitArea.swift */; };
 		CEE5FBBFAFD50A49860DCE10 /* SettingsSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B988B9282F480803C52BB35 /* SettingsSnapshot.swift */; };
 		D8FF5DB5E50281D49940CDD9 /* TonegenUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630E35F15E47D2E610285617 /* TonegenUITests.swift */; };
 		DA6FB06421F9C756A54E2AAB /* LinearSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C58DDA13B360C7B887192674 /* LinearSlider.swift */; };
@@ -137,6 +138,7 @@
 		D8FBC31B838EBDDCDA5D49F9 /* TonegenStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TonegenStoreTests.swift; sourceTree = "<group>"; };
 		DF1D50BC2ECE829CEB8B373F /* MasterSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MasterSection.swift; sourceTree = "<group>"; };
 		E11B4387CD80A9F929CA1273 /* TransportButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportButton.swift; sourceTree = "<group>"; };
+		E2E8F4326C4A7F40D3D061EC /* HitArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HitArea.swift; sourceTree = "<group>"; };
 		EB03311B6B7BA48BC515FBC7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		EF0C7CB066E89BC26739B44E /* FreqSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreqSlider.swift; sourceTree = "<group>"; };
 		F50F83ED8A81F0D2C4C0AE83 /* PhaseOscillator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhaseOscillator.swift; sourceTree = "<group>"; };
@@ -227,6 +229,7 @@
 				A0B242784755A85452818E49 /* ChannelTabs.swift */,
 				EF0C7CB066E89BC26739B44E /* FreqSlider.swift */,
 				C96A04C779983DC0E7E757DB /* FrequencyDisplay.swift */,
+				E2E8F4326C4A7F40D3D061EC /* HitArea.swift */,
 				C58DDA13B360C7B887192674 /* LinearSlider.swift */,
 				2AD16EAAED94370B998E1754 /* Meter.swift */,
 				745824FCDE26EFAFED8662A3 /* PresetRow.swift */,
@@ -466,6 +469,7 @@
 				256270B19CAE43DA22C2B7B4 /* FrequencyDisplay.swift in Sources */,
 				1CC597311C6080C5492600F7 /* FrequencyMath.swift in Sources */,
 				C12B6C374211594B6EDD377B /* GrainOverlay.swift in Sources */,
+				CA8B9DB0773ED07604896A1D /* HitArea.swift in Sources */,
 				DA6FB06421F9C756A54E2AAB /* LinearSlider.swift in Sources */,
 				8A2DABDFF38D6B72537DCC23 /* MasterSection.swift in Sources */,
 				70427CD60185CF931F46AAE5 /* Meter.swift in Sources */,
