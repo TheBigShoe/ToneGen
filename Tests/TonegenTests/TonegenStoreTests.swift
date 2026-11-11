@@ -73,20 +73,85 @@ final class TonegenStoreTests: XCTestCase {
         XCTAssertEqual(p.right.frequencyHz, 440, accuracy: 0.01) // default, unchanged
     }
 
-    // MARK: - onFirstPlay callback
+    // MARK: - Output lifecycle
 
-    func testOnFirstPlayFiredOnceOnly() {
-        var callCount = 0
-        let bridge = ParamsBridge()
-        let store = TonegenStore(bridge: bridge) { callCount += 1 }
+    func testOutputStartsAndStopsWithTransport() {
+        var starts = 0
+        var stops = 0
+        let store = TonegenStore(
+            bridge: ParamsBridge(),
+            startOutput: { starts += 1; return true },
+            stopOutput: { stops += 1 }
+        )
         store.setPlaying(true)
+        store.setPlaying(true) // already playing — must not start twice
         store.setPlaying(false)
         store.setPlaying(true)
-        XCTAssertEqual(
-            callCount,
-            2,
-            "Callback fires every time playing transitions from false→true"
-        )
+        XCTAssertEqual(starts, 2)
+        XCTAssertEqual(stops, 1)
+    }
+
+    func testFailedStartLeavesStoreStopped() throws {
+        let bridge = ParamsBridge()
+        let store = TonegenStore(bridge: bridge, startOutput: { false })
+        store.setPlaying(true)
+        XCTAssertFalse(store.playing)
+        XCTAssertTrue(store.outputFailed)
+        XCTAssertFalse(try XCTUnwrap(bridge.snapshot()?.playing))
+    }
+
+    func testSuccessfulStartClearsFailure() {
+        var succeed = false
+        let store = TonegenStore(bridge: ParamsBridge(), startOutput: { succeed })
+        store.setPlaying(true)
+        succeed = true
+        store.setPlaying(true)
+        XCTAssertTrue(store.playing)
+        XCTAssertFalse(store.outputFailed)
+    }
+
+    func testOutputLostStopsAndFlagsFailure() throws {
+        let (store, bridge) = makeStore()
+        store.setPlaying(true)
+        store.outputLost()
+        XCTAssertFalse(store.playing)
+        XCTAssertTrue(store.outputFailed)
+        XCTAssertFalse(try XCTUnwrap(bridge.snapshot()?.playing))
+    }
+
+    // MARK: - Interruptions
+
+    func testInterruptionPausesAndResumesWhenAllowed() {
+        let (store, _) = makeStore()
+        store.setPlaying(true)
+        store.interruptionBegan()
+        XCTAssertFalse(store.playing)
+        store.interruptionEnded(shouldResume: true)
+        XCTAssertTrue(store.playing)
+    }
+
+    func testInterruptionWithoutResumeStaysStopped() {
+        let (store, _) = makeStore()
+        store.setPlaying(true)
+        store.interruptionBegan()
+        store.interruptionEnded(shouldResume: false)
+        XCTAssertFalse(store.playing)
+    }
+
+    func testInterruptionWhileStoppedDoesNotStartPlayback() {
+        let (store, _) = makeStore()
+        store.interruptionBegan()
+        store.interruptionEnded(shouldResume: true)
+        XCTAssertFalse(store.playing)
+    }
+
+    func testUserStopDuringInterruptionCancelsResume() {
+        let (store, _) = makeStore()
+        store.setPlaying(true)
+        store.interruptionBegan()
+        store.setPlaying(false)
+        store.interruptionEnded(shouldResume: true)
+        XCTAssertFalse(store.playing)
     }
 
     // MARK: - Helpers

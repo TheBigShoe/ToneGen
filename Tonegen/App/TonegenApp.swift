@@ -12,9 +12,12 @@ struct TonegenApp: App {
         Self.configureAudioSession()
         let eng = ToneEngine()
         engine = eng
-        let st = TonegenStore(bridge: eng.bridge) {
-            eng.ensureStarted()
-        }
+        let st = TonegenStore(
+            bridge: eng.bridge,
+            startOutput: { eng.start() },
+            stopOutput: { eng.stop() }
+        )
+        eng.onOutputLost = { [weak st] in st?.outputLost() }
         store = st
         Self.observeAudioSession(engine: eng, store: st)
     }
@@ -32,52 +35,101 @@ struct TonegenApp: App {
             try session.setPreferredSampleRate(48000)
             try session.setPreferredIOBufferDuration(0.005)
         } catch {
-            os_log(.error, "TonegenApp: Audio session configuration failed: %{public}@", error.localizedDescription)
+            os_log(
+                .error,
+                "TonegenApp: Audio session configuration failed: %{public}@",
+                error.localizedDescription
+            )
         }
     }
 
     private static func observeAudioSession(engine: ToneEngine, store: TonegenStore) {
         let nc = NotificationCenter.default
+        let session = AVAudioSession.sharedInstance()
         nc.addObserver(
             forName: AVAudioSession.interruptionNotification,
-            object: AVAudioSession.sharedInstance(),
+            object: session,
             queue: .main
         ) { notification in
-            handleInterruption(notification, engine: engine, store: store)
+            let info = InterruptionInfo(notification)
+            MainActor.assumeIsolated {
+                handleInterruption(info, engine: engine, store: store)
+            }
         }
         nc.addObserver(
             forName: AVAudioSession.routeChangeNotification,
-            object: AVAudioSession.sharedInstance(),
+            object: session,
             queue: .main
         ) { notification in
-            handleRouteChange(notification, store: store)
+            let raw = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+            MainActor.assumeIsolated {
+                handleRouteChange(reason: raw, store: store)
+            }
+        }
+        nc.addObserver(
+            forName: AVAudioSession.mediaServicesWereResetNotification,
+            object: session,
+            queue: .main
+        ) { _ in
+            MainActor.assumeIsolated {
+                handleMediaServicesReset(engine: engine, store: store)
+            }
         }
     }
 
+    /// The parts of an interruption notification we act on, extracted so the
+    /// non-Sendable `Notification` never crosses into the main-actor closure.
+    private struct InterruptionInfo {
+        let type: AVAudioSession.InterruptionType?
+        let shouldResume: Bool
+
+        init(_ notification: Notification) {
+            let info = notification.userInfo
+            type = (info?[AVAudioSessionInterruptionTypeKey] as? UInt)
+                .flatMap(AVAudioSession.InterruptionType.init(rawValue:))
+            let options = info?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            shouldResume = AVAudioSession.InterruptionOptions(rawValue: options)
+                .contains(.shouldResume)
+        }
+    }
+
+    @MainActor
     private static func handleInterruption(
-        _ notification: Notification,
+        _ info: InterruptionInfo,
         engine: ToneEngine,
         store: TonegenStore
     ) {
-        guard let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+        guard let type = info.type else { return }
         switch type {
         case .began:
-            break  // engine pauses automatically; keep store.playing = true so audio resumes
+            // Engine first: it must not deactivate the session during an
+            // interruption, which the store's normal stop path would do.
+            engine.suspendForInterruption()
+            store.interruptionBegan()
         case .ended:
-            let optValue = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
-            if AVAudioSession.InterruptionOptions(rawValue: optValue).contains(.shouldResume), store.playing {
-                engine.restart()
-            }
+            store.interruptionEnded(shouldResume: info.shouldResume)
         @unknown default:
             break
         }
     }
 
-    private static func handleRouteChange(_ notification: Notification, store: TonegenStore) {
-        guard let reasonValue = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
-              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue),
-              reason == .oldDeviceUnavailable else { return }
+    @MainActor
+    private static func handleRouteChange(reason raw: UInt?, store: TonegenStore) {
+        // Headphones unplugged: stop rather than blast the tone out of the speaker.
+        guard let raw,
+              AVAudioSession.RouteChangeReason(rawValue: raw) == .oldDeviceUnavailable
+        else { return }
         store.setPlaying(false)
+    }
+
+    /// The media server crashed and restarted: every audio object is dead and the
+    /// session has lost its configuration.
+    @MainActor
+    private static func handleMediaServicesReset(engine: ToneEngine, store: TonegenStore) {
+        let wasPlaying = store.playing
+        configureAudioSession()
+        engine.rebuild()
+        guard wasPlaying else { return }
+        if !engine.start() { store.outputLost() }
     }
 }

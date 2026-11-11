@@ -17,19 +17,68 @@ final class TonegenStore {
     /// layout agree, and the setting survives a size-class change such as unfolding.
     var linked: Bool = true
 
-    /// Called when the playing state transitions from false → true (use to start the engine).
-    private let onFirstPlay: () -> Void
+    /// True when audio output could not be started or was lost and not recovered.
+    /// Cleared by the next successful start.
+    private(set) var outputFailed = false
 
-    init(bridge: ParamsBridge, onFirstPlay: @escaping () -> Void = {}) {
+    /// Brings audio output up. Returns false if the hardware could not be started.
+    private let startOutput: () -> Bool
+    /// Releases audio output after the renderer has faded out.
+    private let stopOutput: () -> Void
+
+    /// Set while an audio session interruption has paused playback the user started.
+    private var resumeAfterInterruption = false
+
+    init(
+        bridge: ParamsBridge,
+        startOutput: @escaping () -> Bool = { true },
+        stopOutput: @escaping () -> Void = {}
+    ) {
         self.bridge = bridge
-        self.onFirstPlay = onFirstPlay
+        self.startOutput = startOutput
+        self.stopOutput = stopOutput
         pushParams()
     }
 
+    /// Starts or stops generation. If output cannot be started, `playing` stays
+    /// false and `outputFailed` is set so the UI never claims to be generating
+    /// while silent.
     func setPlaying(_ on: Bool) {
-        let wasPlaying = playing
+        resumeAfterInterruption = false
+        guard on != playing else { return }
+        if on {
+            guard startOutput() else {
+                outputFailed = true
+                return
+            }
+            outputFailed = false
+        } else {
+            stopOutput()
+        }
         playing = on
-        if on, !wasPlaying { onFirstPlay() }
+        pushParams()
+    }
+
+    /// An interruption (phone call, Siri, alarm) has silenced the app.
+    func interruptionBegan() {
+        guard playing else { return }
+        setPlaying(false)
+        resumeAfterInterruption = true
+    }
+
+    /// The interruption is over. Playback resumes only if the system says it may
+    /// and the interruption — not the user — was what stopped it.
+    func interruptionEnded(shouldResume: Bool) {
+        guard resumeAfterInterruption else { return }
+        resumeAfterInterruption = false
+        if shouldResume { setPlaying(true) }
+    }
+
+    /// Output stopped underneath us and could not be restarted.
+    func outputLost() {
+        resumeAfterInterruption = false
+        playing = false
+        outputFailed = true
         pushParams()
     }
 

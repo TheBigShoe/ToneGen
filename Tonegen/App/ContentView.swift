@@ -163,11 +163,17 @@ struct ContentView: View {
                         .foregroundStyle(Tokens.Color.live)
                 }
                 .transition(.opacity)
+            } else if store.outputFailed {
+                Text("AUDIO OUTPUT UNAVAILABLE")
+                    .font(Tokens.Font.readoutXs)
+                    .foregroundStyle(Tokens.Color.meterHot)
+                    .transition(.opacity)
             }
         }
         .padding(.horizontal, Tokens.Spacing.panelPadH)
         .padding(.vertical, Tokens.Spacing.md)
         .animation(.easeOut(duration: 0.3), value: store.playing)
+        .animation(.easeOut(duration: 0.3), value: store.outputFailed)
     }
 
     private var versionLabel: String {
