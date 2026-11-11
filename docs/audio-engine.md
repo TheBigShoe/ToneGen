@@ -301,7 +301,7 @@ func polyBlamp(_ t: Float, dt: Float) -> Float {
 let naive = t < 0.5 ? 4 * t - 1 : 3 - 4 * t
 let t2    = t + 0.5 < 1 ? t + 0.5 : t - 0.5
 let tri   = (naive + 8 * dt * (polyBlamp(t, dt: dt) - polyBlamp(t2, dt: dt)))
-            * blampDroopCompensation(dt: dt)
+            * blepDroopCompensation(dt: dt)
 ```
 
 The correction is symmetric about each corner, so it is zero-phase: the
@@ -312,12 +312,20 @@ and has no DC offset.
 **Droop compensation.** PolyBLEP/BLAMP act like convolving the ideal waveform
 with a 2-sample triangular kernel, whose response is sinc²(f/fs) — −1.3 dB at
 10 kHz and −5.3 dB at 20 kHz (48 kHz). For a test-tone generator the level
-must not depend on frequency, so the triangle is multiplied by
-`1 / sinc²(dt)`. That holds the fundamental within 0.1 dB of an ideal
-triangle's (8/π²) from 20 Hz to 20 kHz at 44.1 and 48 kHz; peaks stay ≤ 1 and
-settle at 8/π² ≈ 0.81 once only the fundamental is below Nyquist. Square and
-saw do not have this compensation yet, so their fundamental droops the same
-way at the top of the band.
+must not depend on frequency, so the waveforms are multiplied by
+`1 / sinc²(dt)` (`blepDroopCompensation`):
+
+- **Triangle** — fundamental within 0.1 dB of an ideal triangle's (8/π²) from
+  20 Hz to 20 kHz at 44.1 and 48 kHz; peaks stay ≤ 1 and settle at
+  8/π² ≈ 0.81 once only the fundamental is below Nyquist.
+- **Saw** — fundamental within 0.1 dB of an ideal saw's (2/π) across the
+  band; peaks stay ≤ 1.
+- **Square** — only partly compensated. An ideal square's fundamental is 4/π
+  (+2.1 dB) above its ±1 peak, so a level-true square would exceed full scale
+  once its harmonics pass Nyquist. The gain is `max(1, π/4 · 1/sinc²(dt))`:
+  the fundamental is never left below a full-scale sine. The square is
+  therefore up to 2.1 dB under an ideal square in the top octaves (−1.3 dB at
+  10 kHz, −2.1 dB from about 13.5 kHz up) instead of −5.3 dB at 20 kHz.
 
 Measured alias suppression versus naive (48 kHz, `PolyBlepTests`): ≈ 48 dB
 at 3 kHz from a 5 kHz tone, ≈ 38 dB at 7 kHz from 5 kHz, ≈ 68 dB at 1 kHz

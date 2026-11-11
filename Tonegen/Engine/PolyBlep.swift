@@ -20,19 +20,34 @@ func polyBlep(_ t: Float, dt: Float) -> Float {
     }
 }
 
-/// Saw wave with PolyBLEP correction applied at the wrap-around discontinuity.
+/// Saw wave with PolyBLEP correction applied at the wrap-around discontinuity and the
+/// fundamental level held flat across 20 Hz – 20 kHz.
+///
+/// The peak stays under ±1 at every frequency: the rounded step loses more peak than
+/// the level compensation restores.
 @inline(__always)
 func sawBLEP(_ t: Float, dt: Float) -> Float {
-    (2 * t - 1) - polyBlep(t, dt: dt)
+    ((2 * t - 1) - polyBlep(t, dt: dt)) * blepDroopCompensation(dt: dt)
 }
 
 /// Square wave with PolyBLEP applied at both discontinuities (t=0 and t=0.5).
+///
+/// Unlike saw and triangle, the square cannot be made level-flat inside ±1: an ideal
+/// square's fundamental is 4/π (+2.1 dB) above its peak, so once the upper harmonics
+/// pass Nyquist a level-true square would exceed full scale and clip at 0 dBFS.
+/// The droop is therefore only made up as far as the peak allows — the fundamental
+/// is never left below a full-scale sine. The result is at most 2.1 dB under an ideal
+/// square, instead of 5.3 dB at 20 kHz.
 @inline(__always)
 func squareBLEP(_ t: Float, dt: Float) -> Float {
     let raw: Float = t < 0.5 ? 1 : -1
     let t2: Float = t + 0.5 < 1 ? t + 0.5 : t - 0.5
-    return raw + polyBlep(t, dt: dt) - polyBlep(t2, dt: dt)
+    let gain = max(1, squareHeadroom * blepDroopCompensation(dt: dt))
+    return (raw + polyBlep(t, dt: dt) - polyBlep(t2, dt: dt)) * gain
 }
+
+/// π/4 — the gain at which an ideal square's fundamental peaks at exactly ±1.
+private let squareHeadroom: Float = .pi / 4
 
 // MARK: - Triangle (PolyBLAMP)
 
@@ -64,10 +79,10 @@ func polyBlamp(_ t: Float, dt: Float) -> Float {
 /// PolyBLEP/BLAMP behave like convolving the ideal waveform with a 2-sample triangular
 /// kernel, whose response is sinc²(f/fs): −1.3 dB at 10 kHz and −5.3 dB at 20 kHz
 /// (48 kHz). For a test-tone generator the fundamental level must not depend on
-/// frequency, so the triangle is scaled back up. Upper harmonics stay slightly
+/// frequency, so the waveform is scaled back up. Upper harmonics stay slightly
 /// attenuated, which only rounds the corners further.
 @inline(__always)
-func blampDroopCompensation(dt: Float) -> Float {
+func blepDroopCompensation(dt: Float) -> Float {
     let x = Float.pi * dt
     // Below this the droop is < 1e-8 and sinf(x)/x loses precision.
     guard x > 1e-4 else { return 1 }
@@ -87,5 +102,5 @@ func triangleBLAMP(_ t: Float, dt: Float) -> Float {
     let t2: Float = t + 0.5 < 1 ? t + 0.5 : t - 0.5
     // Slope flips by ±8 per cycle at each corner, i.e. ±8·dt per sample.
     let corrected = naive + 8 * dt * (polyBlamp(t, dt: dt) - polyBlamp(t2, dt: dt))
-    return corrected * blampDroopCompensation(dt: dt)
+    return corrected * blepDroopCompensation(dt: dt)
 }

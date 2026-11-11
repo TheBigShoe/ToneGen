@@ -149,6 +149,34 @@ final class PolyBlepTests: XCTestCase {
         }
     }
 
+    func testSawBLEPLevelFlatAcrossBand() {
+        // Fundamental of an ideal ±1 saw is 2/π.
+        let ideal: Float = 2 / .pi
+        // 12 kHz is skipped at 48 kHz: it is fs/4, where aliased harmonics land on the
+        // fundamental and make the reading meaningless.
+        for hz: Float in [20, 100, 1000, 5000, 10000, 15000, 20000] {
+            let x = render(waveform: .saw, useBLEP: true, hz: hz)
+            let levelDb = 20 * log10(goertzel(x, hz: hz) / ideal)
+            let peak = x.map(abs).max() ?? 0
+            XCTAssertEqual(levelDb, 0, accuracy: 0.1, "Saw fundamental level off at \(hz) Hz")
+            XCTAssertLessThanOrEqual(peak, 1.0001, "Saw overshoot at \(hz) Hz")
+        }
+    }
+
+    func testSquareBLEPLevelLimitedByFullScale() {
+        // Fundamental of an ideal ±1 square is 4/π; a full-scale sine is 2.1 dB below it.
+        let ideal: Float = 4 / .pi
+        for hz: Float in [20, 100, 1000, 5000, 10000, 15000, 18000, 20000] {
+            let x = render(waveform: .square, useBLEP: true, hz: hz)
+            let levelDb = 20 * log10(goertzel(x, hz: hz) / ideal)
+            let peak = x.map(abs).max() ?? 0
+            XCTAssertLessThanOrEqual(levelDb, 0.05, "Square above ideal at \(hz) Hz")
+            XCTAssertGreaterThan(levelDb, -2.2, "Square droops past a full-scale sine at \(hz) Hz")
+            // Aliased partials ride on the fundamental, hence the 1% allowance.
+            XCTAssertLessThanOrEqual(peak, 1.01, "Square overshoot at \(hz) Hz")
+        }
+    }
+
     // MARK: - Helpers
 
     /// Goertzel amplitude at a specific alias frequency (a frequency with no legitimate harmonic).
