@@ -4,6 +4,20 @@ import XCTest
 
 @MainActor
 final class TonegenStoreTests: XCTestCase {
+    private var suiteName = ""
+    private var defaults = UserDefaults.standard
+
+    override func setUp() {
+        super.setUp()
+        suiteName = "TonegenStoreTests-\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName) ?? .standard
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suiteName)
+        super.tearDown()
+    }
+
     // MARK: - Bridge sync
 
     func testSetPlayingUpdatesBridge() throws {
@@ -81,7 +95,8 @@ final class TonegenStoreTests: XCTestCase {
         let store = TonegenStore(
             bridge: ParamsBridge(),
             startOutput: { starts += 1; return true },
-            stopOutput: { stops += 1 }
+            stopOutput: { stops += 1 },
+            defaults: defaults
         )
         store.setPlaying(true)
         store.setPlaying(true) // already playing — must not start twice
@@ -93,7 +108,7 @@ final class TonegenStoreTests: XCTestCase {
 
     func testFailedStartLeavesStoreStopped() throws {
         let bridge = ParamsBridge()
-        let store = TonegenStore(bridge: bridge, startOutput: { false })
+        let store = TonegenStore(bridge: bridge, startOutput: { false }, defaults: defaults)
         store.setPlaying(true)
         XCTAssertFalse(store.playing)
         XCTAssertTrue(store.outputFailed)
@@ -102,7 +117,9 @@ final class TonegenStoreTests: XCTestCase {
 
     func testSuccessfulStartClearsFailure() {
         var succeed = false
-        let store = TonegenStore(bridge: ParamsBridge(), startOutput: { succeed })
+        let store = TonegenStore(
+            bridge: ParamsBridge(), startOutput: { succeed }, defaults: defaults
+        )
         store.setPlaying(true)
         succeed = true
         store.setPlaying(true)
@@ -158,7 +175,7 @@ final class TonegenStoreTests: XCTestCase {
 
     private func makeStore() -> (TonegenStore, ParamsBridge) {
         let bridge = ParamsBridge()
-        let store = TonegenStore(bridge: bridge)
+        let store = TonegenStore(bridge: bridge, defaults: defaults)
         return (store, bridge)
     }
 }

@@ -16,6 +16,7 @@
 		350898041B8BF55BFAA3E2C2 /* FreqSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF0C7CB066E89BC26739B44E /* FreqSlider.swift */; };
 		37BAADB60CBE4B2376EC6E19 /* ColorHex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 318D059130DF9A31AE3F5783 /* ColorHex.swift */; };
 		3B8195EBBC2422DF3AC7F4F2 /* TonegenStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8FBC31B838EBDDCDA5D49F9 /* TonegenStoreTests.swift */; };
+		3BC0114901E0902295178000 /* SettingsPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF083272EB54495CEBA48CF3 /* SettingsPersistenceTests.swift */; };
 		42077FC0081B55C80F1537D1 /* ToneRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1925163B87257D3D461B255B /* ToneRenderer.swift */; };
 		439578F6D2C6E283B5204285 /* SampleRingBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F323D4F5E914E6E933F7E8B /* SampleRingBuffer.swift */; };
 		4DC512F4CE58B8EB28DD7FCF /* WaveformRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85FABCAAB71CA4E9658E9D3C /* WaveformRenderTests.swift */; };
@@ -44,6 +45,7 @@
 		C1076155FF71B31E00CEA8BB /* WaveformGlyph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FD3F304DD4B939818826B35 /* WaveformGlyph.swift */; };
 		C12B6C374211594B6EDD377B /* GrainOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67ACF15B1D3C70B153522FAD /* GrainOverlay.swift */; };
 		C35A446F61EE3C130E831AD3 /* ThemePreviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C15E001ADE1326248CB5AC4 /* ThemePreviewScreen.swift */; };
+		CEE5FBBFAFD50A49860DCE10 /* SettingsSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B988B9282F480803C52BB35 /* SettingsSnapshot.swift */; };
 		D8FF5DB5E50281D49940CDD9 /* TonegenUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630E35F15E47D2E610285617 /* TonegenUITests.swift */; };
 		DA6FB06421F9C756A54E2AAB /* LinearSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C58DDA13B360C7B887192674 /* LinearSlider.swift */; };
 		DB7C69475CD5F8ED5BA93BAC /* TransportButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E11B4387CD80A9F929CA1273 /* TransportButton.swift */; };
@@ -107,10 +109,12 @@
 		8E5462FAEC60BDFA5DB6CEEF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		956DDBF3185546480D85D880 /* Tonegen.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Tonegen.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		98A1DC731CC8169C037FCC5E /* FrequencyMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrequencyMath.swift; sourceTree = "<group>"; };
+		9B988B9282F480803C52BB35 /* SettingsSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSnapshot.swift; sourceTree = "<group>"; };
 		9C3A8DAC2C329866F70607E4 /* ChannelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelView.swift; sourceTree = "<group>"; };
 		A0B242784755A85452818E49 /* ChannelTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelTabs.swift; sourceTree = "<group>"; };
 		A368A4AED4D21D1C670BF038 /* ChannelState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelState.swift; sourceTree = "<group>"; };
 		B0F8989C402921220E96F210 /* PolyBlep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolyBlep.swift; sourceTree = "<group>"; };
+		BF083272EB54495CEBA48CF3 /* SettingsPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPersistenceTests.swift; sourceTree = "<group>"; };
 		BFC928D82A98D7AC20E24CF8 /* TonegenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TonegenTests.swift; sourceTree = "<group>"; };
 		BFDAB395A333BD21368A9887 /* FrequencyMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrequencyMathTests.swift; sourceTree = "<group>"; };
 		C58DDA13B360C7B887192674 /* LinearSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinearSlider.swift; sourceTree = "<group>"; };
@@ -174,6 +178,7 @@
 			children = (
 				A368A4AED4D21D1C670BF038 /* ChannelState.swift */,
 				7A7E89D43C9196E00A898E16 /* EngineParams.swift */,
+				9B988B9282F480803C52BB35 /* SettingsSnapshot.swift */,
 				CD8CF86FC009BB7A573D5F48 /* TonegenStore.swift */,
 			);
 			path = State;
@@ -296,6 +301,7 @@
 				1603EDAC3CF91BC56CCD1BF9 /* ParameterSmoothingTests.swift */,
 				7EF2611D77B6CD4A9E3945EA /* PhaseOscillatorTests.swift */,
 				333B6ED5FE2D4A67B23BFADA /* PolyBlepTests.swift */,
+				BF083272EB54495CEBA48CF3 /* SettingsPersistenceTests.swift */,
 				45DBFB4E445A00FA5881DEF6 /* SmootherTests.swift */,
 				D8FBC31B838EBDDCDA5D49F9 /* TonegenStoreTests.swift */,
 				BFC928D82A98D7AC20E24CF8 /* TonegenTests.swift */,
@@ -451,6 +457,7 @@
 				99D795897786EF8F7F753B23 /* PolyBlep.swift in Sources */,
 				F1FB71C81B5DB09AC1574222 /* PresetRow.swift in Sources */,
 				439578F6D2C6E283B5204285 /* SampleRingBuffer.swift in Sources */,
+				CEE5FBBFAFD50A49860DCE10 /* SettingsSnapshot.swift in Sources */,
 				8866EF7171B92F17E65B1A20 /* Smoother.swift in Sources */,
 				C35A446F61EE3C130E831AD3 /* ThemePreviewScreen.swift in Sources */,
 				B4743E407CE06D9EA61B8F8A /* Tokens.swift in Sources */,
@@ -475,6 +482,7 @@
 				5E62A21A1990B45600C9A0E0 /* ParameterSmoothingTests.swift in Sources */,
 				2EEA8783BDDD33607315BE17 /* PhaseOscillatorTests.swift in Sources */,
 				F69450F686EA5F654CDBE2EB /* PolyBlepTests.swift in Sources */,
+				3BC0114901E0902295178000 /* SettingsPersistenceTests.swift in Sources */,
 				A9697E1AA0326708E10C0EDE /* SmootherTests.swift in Sources */,
 				DF4F992899B5041EC07F593E /* ToneRendererTests.swift in Sources */,
 				3B8195EBBC2422DF3AC7F4F2 /* TonegenStoreTests.swift in Sources */,
