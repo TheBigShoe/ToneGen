@@ -7,6 +7,11 @@ import os
 /// Output is live only between `start()` and `stop()`. Leaving the engine running
 /// while silent would keep the app alive in the background and hold the audio
 /// session away from other apps.
+///
+/// The graph generates at the hardware output rate so the main mixer never resamples
+/// the test signal. The rate is re-read every time the hardware is (re)started — which
+/// covers launch, configuration changes, media-services resets and a route change while
+/// stopped — and the graph is reconnected if it moved.
 @MainActor
 final class ToneEngine {
     let bridge = ParamsBridge()
@@ -23,9 +28,20 @@ final class ToneEngine {
     /// stopped the engine (for example a hardware change that failed to restart).
     var onOutputLost: (() -> Void)?
 
+    /// Called after the graph moved to a new rate, with that rate in Hz.
+    var onSampleRateChange: ((Double) -> Void)?
+
+    /// Rate the graph and renderer generate at, in Hz. Changes only between a hardware
+    /// stop and the following start.
+    private(set) var sampleRate: Double
+
+    /// Rate used when neither the output node nor the session reports a usable one.
+    nonisolated static let fallbackSampleRate: Double = 48000
+
     private var engine: AVAudioEngine
+    private var sourceNode: AVAudioSourceNode
     private let renderer: ToneRenderer
-    private let format: AVAudioFormat
+    private var format: AVAudioFormat
 
     /// True while output is meant to be live. The system can stop the underlying
     /// engine without telling us, so this is intent, not hardware state.
@@ -38,19 +54,23 @@ final class ToneEngine {
     /// the hardware is stopped; cutting it sooner clicks.
     private static let fadeOutDuration: Duration = .milliseconds(80)
 
-    init(sampleRate: Double = 48000) {
-        guard let fmt = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: sampleRate,
-            channels: 2,
-            interleaved: false
-        ) else {
-            preconditionFailure("AVAudioFormat init failed for sampleRate=\(sampleRate)")
+    init() {
+        let eng = AVAudioEngine()
+        var rate = Self.hardwareSampleRate(of: eng)
+        var fmt = Self.makeFormat(sampleRate: rate)
+        if fmt == nil {
+            rate = Self.fallbackSampleRate
+            fmt = Self.makeFormat(sampleRate: rate)
         }
-        let rend = ToneRenderer(sampleRate: Float(sampleRate), bridge: bridge)
+        guard let fmt else {
+            preconditionFailure("AVAudioFormat init failed for sampleRate=\(rate)")
+        }
+        let rend = ToneRenderer(sampleRate: Float(rate), bridge: bridge)
+        sampleRate = rate
         format = fmt
         renderer = rend
-        engine = Self.makeGraph(renderer: rend, format: fmt)
+        engine = eng
+        sourceNode = Self.attachSource(renderer: rend, format: fmt, to: eng)
 
         // Not removed in deinit: the engine lives for the whole process.
         NotificationCenter.default.addObserver(
@@ -128,26 +148,94 @@ final class ToneEngine {
         running = false
         transportGeneration &+= 1
         engine.stop()
-        engine = Self.makeGraph(renderer: renderer, format: format)
+        let eng = AVAudioEngine()
+        engine = eng
+        sourceNode = Self.attachSource(renderer: renderer, format: format, to: eng)
+        followHardwareRate()
+    }
+
+    /// Picks the rate to generate at: the output node's hardware format, else the
+    /// session's rate, else 48 kHz. An output that is not yet configured can report 0.
+    nonisolated static func resolveSampleRate(
+        outputNodeRate: Double,
+        sessionRate: Double
+    ) -> Double {
+        if outputNodeRate.isFinite, outputNodeRate > 0 { return outputNodeRate }
+        if sessionRate.isFinite, sessionRate > 0 { return sessionRate }
+        return fallbackSampleRate
     }
 
     // MARK: - Private
 
-    private static func makeGraph(renderer: ToneRenderer, format: AVAudioFormat) -> AVAudioEngine {
-        let engine = AVAudioEngine()
+    private static func hardwareSampleRate(of engine: AVAudioEngine) -> Double {
+        resolveSampleRate(
+            outputNodeRate: engine.outputNode.outputFormat(forBus: 0).sampleRate,
+            sessionRate: AVAudioSession.sharedInstance().sampleRate
+        )
+    }
+
+    private static func makeFormat(sampleRate: Double) -> AVAudioFormat? {
+        AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: sampleRate,
+            channels: 2,
+            interleaved: false
+        )
+    }
+
+    /// Creates a source node rendering `format`, attaches it and connects it to the
+    /// main mixer at that format. The mixer's output follows the hardware, so when the
+    /// two rates match the signal reaches the output without resampling.
+    private static func attachSource(
+        renderer: ToneRenderer,
+        format: AVAudioFormat,
+        to engine: AVAudioEngine
+    ) -> AVAudioSourceNode {
         let node = AVAudioSourceNode(format: format) { silence, _, frameCount, audioBufferList in
             renderer.render(frames: Int(frameCount), buffers: audioBufferList, silence: silence)
             return noErr
         }
         engine.attach(node)
         engine.connect(node, to: engine.mainMixerNode, format: format)
-        return engine
+        return node
+    }
+
+    /// Moves the graph and renderer to the current hardware output rate if it differs
+    /// from the one they were built for. Call only while output is not meant to be live
+    /// yet (immediately before `engine.start()`, or after a rebuild).
+    ///
+    /// Why this is safe against the render thread: `AVAudioEngine.stop()` is synchronous.
+    /// When it returns the I/O unit has stopped, no render callback is executing, and
+    /// none can begin until `engine.start()`, which runs later on this same main thread.
+    /// `ToneRenderer.setSampleRate` therefore never overlaps `render`, so the render path
+    /// needs no lock, atomic or flag for it. The source node is replaced rather than
+    /// reconnected because its render format is fixed when it is created; the renderer
+    /// (and with it `scopeL`/`scopeR`) and the `ParamsBridge` remain the same instances.
+    private func followHardwareRate() {
+        let rate = Self.hardwareSampleRate(of: engine)
+        guard rate != sampleRate else { return }
+        guard let newFormat = Self.makeFormat(sampleRate: rate) else {
+            os_log(.error, "ToneEngine: no format for hardware rate %{public}f", rate)
+            return
+        }
+        engine.stop()
+        engine.disconnectNodeOutput(sourceNode)
+        engine.detach(sourceNode)
+        renderer.setSampleRate(Float(rate))
+        format = newFormat
+        sourceNode = Self.attachSource(renderer: renderer, format: newFormat, to: engine)
+        sampleRate = rate
+        onSampleRateChange?(rate)
     }
 
     private func startHardware() -> Bool {
         do {
+            // Activate first: the session reports the route's real rate only while active.
             try AVAudioSession.sharedInstance().setActive(true)
-            if !engine.isRunning { try engine.start() }
+            if !engine.isRunning {
+                followHardwareRate()
+                try engine.start()
+            }
             return true
         } catch {
             Self.log("output start failed", error)
@@ -157,7 +245,7 @@ final class ToneEngine {
 
     /// The system stops the engine when the output hardware changes format
     /// (a USB interface or Bluetooth device with a different sample rate).
-    /// The graph reconnects to the new hardware format on the next start.
+    /// The restart goes through `startHardware`, which moves the graph to the new rate.
     private func handleConfigurationChange(from source: AnyObject?) {
         guard source === engine, running else { return }
         if !startHardware() {

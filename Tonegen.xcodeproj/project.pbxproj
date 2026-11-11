@@ -37,6 +37,7 @@
 		896BD6EA3B892826CA2A680E /* DBMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8495F63FC40F3AFF578AC1B9 /* DBMathTests.swift */; };
 		8A294B4457976B696B6019CF /* ChannelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C3A8DAC2C329866F70607E4 /* ChannelView.swift */; };
 		8A2DABDFF38D6B72537DCC23 /* MasterSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF1D50BC2ECE829CEB8B373F /* MasterSection.swift */; };
+		9025781C9280694A8C20F688 /* ToneEngineSampleRateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBF9AE238D88253FA62DF645 /* ToneEngineSampleRateTests.swift */; };
 		9122BEC0D8CE77B03DFA0816 /* NoiseGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CCA9AF4D8EAB1728FC0ADD /* NoiseGeneratorTests.swift */; };
 		9440CD2306646412CEED9A26 /* FrequencyMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFDAB395A333BD21368A9887 /* FrequencyMathTests.swift */; };
 		944877CC854588E611D70911 /* DBMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DCD96B817AF40ED25165164 /* DBMath.swift */; };
@@ -129,6 +130,7 @@
 		A368A4AED4D21D1C670BF038 /* ChannelState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelState.swift; sourceTree = "<group>"; };
 		AC8DE6100F90F813E529E555 /* SampleRingBufferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleRingBufferTests.swift; sourceTree = "<group>"; };
 		B0F8989C402921220E96F210 /* PolyBlep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolyBlep.swift; sourceTree = "<group>"; };
+		BBF9AE238D88253FA62DF645 /* ToneEngineSampleRateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToneEngineSampleRateTests.swift; sourceTree = "<group>"; };
 		BF083272EB54495CEBA48CF3 /* SettingsPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPersistenceTests.swift; sourceTree = "<group>"; };
 		BFC928D82A98D7AC20E24CF8 /* TonegenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TonegenTests.swift; sourceTree = "<group>"; };
 		BFDAB395A333BD21368A9887 /* FrequencyMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrequencyMathTests.swift; sourceTree = "<group>"; };
@@ -327,6 +329,7 @@
 				BF083272EB54495CEBA48CF3 /* SettingsPersistenceTests.swift */,
 				45DBFB4E445A00FA5881DEF6 /* SmootherTests.swift */,
 				54392437726894BC909EF583 /* ToneEngineEnsureRunningTests.swift */,
+				BBF9AE238D88253FA62DF645 /* ToneEngineSampleRateTests.swift */,
 				D8FBC31B838EBDDCDA5D49F9 /* TonegenStoreTests.swift */,
 				BFC928D82A98D7AC20E24CF8 /* TonegenTests.swift */,
 				346E88605639AD4AA5A56445 /* ToneRendererTests.swift */,
@@ -516,6 +519,7 @@
 				3BC0114901E0902295178000 /* SettingsPersistenceTests.swift in Sources */,
 				A9697E1AA0326708E10C0EDE /* SmootherTests.swift in Sources */,
 				C5090B8B5E2886871564A8B5 /* ToneEngineEnsureRunningTests.swift in Sources */,
+				9025781C9280694A8C20F688 /* ToneEngineSampleRateTests.swift in Sources */,
 				DF4F992899B5041EC07F593E /* ToneRendererTests.swift in Sources */,
 				3B8195EBBC2422DF3AC7F4F2 /* TonegenStoreTests.swift in Sources */,
 				6BC2D0E39107539F6E98186C /* TonegenTests.swift in Sources */,
