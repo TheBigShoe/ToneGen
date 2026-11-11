@@ -1,10 +1,12 @@
-// 14-segment vertical peak meter with hold and color zones.
+// 14-segment vertical RMS level meter with color zones.
 import SwiftUI
 
 struct Meter: View {
     /// Current level in [0, 1] (linear scale).
     let level: Float
     var accentColor: Color = Tokens.Color.channelL
+    /// Channel name, spoken as "<label> output level, RMS".
+    var label: String = "Output"
 
     private let segmentCount = 14
     // Top 2 = hot (red), next 3 = warn (amber), rest = normal (green).
@@ -23,6 +25,9 @@ struct Meter: View {
             }
         }
         .frame(width: 8)
+        .accessibilityElement()
+        .accessibilityLabel("\(label) output level, RMS")
+        .accessibilityValue(String(format: "%.0f percent of scale", level * 100))
     }
 
     private func segmentColor(_ seg: Int) -> Color {

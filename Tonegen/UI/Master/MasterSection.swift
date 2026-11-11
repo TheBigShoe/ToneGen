@@ -1,5 +1,4 @@
 // Transport, master gain, and output level meters.
-import Combine
 import SwiftUI
 
 struct MasterSection: View {
@@ -9,23 +8,18 @@ struct MasterSection: View {
     /// Wide layout: show a Link/Unlink button in the header (no ChannelTabs there).
     var showLinkButton: Bool = false
 
-    @State private var peakL: Float = 0
-    @State private var peakR: Float = 0
-    @State private var holdL: Float = 0
-    @State private var holdR: Float = 0
-    @State private var holdAgeL: Double = 0
-    @State private var holdAgeR: Double = 0
+    @State private var levelL: Float = 0
+    @State private var levelR: Float = 0
     /// Reused every frame — avoids 60 allocs/s on the main thread.
     @State private var meterBuf = [Float](repeating: 0, count: readBlock)
 
-    private static let holdDuration: Double = 1.0
-    private static let decayDbPerSec: Float = 20.0
+    private static let frameInterval: Duration = .milliseconds(16)
+    private static let frameSeconds: Float = 1.0 / 60
+    /// Release speed after playback stops, in dB/s, so the bars fall instead of snapping to zero.
+    private static let decayDbPerSec: Float = 60.0
     private static let readBlock = 512
     private static let meterFloorDb: Float = -60
     private static let meterHeight: CGFloat = 64
-
-    /// 60 Hz timer drives meter updates off the main run loop (avoids let _ = in ViewBuilder).
-    private let displayTimer = Timer.publish(every: 1.0 / 60, on: .main, in: .common).autoconnect()
 
     private var masterBinding: Binding<Double> {
         Binding(
@@ -63,8 +57,8 @@ struct MasterSection: View {
             }
 
             HStack(spacing: Tokens.Spacing.xxs) {
-                Meter(level: peakL, accentColor: Tokens.Color.channelL)
-                Meter(level: peakR, accentColor: Tokens.Color.channelR)
+                Meter(level: levelL, accentColor: Tokens.Color.channelL, label: "Left")
+                Meter(level: levelR, accentColor: Tokens.Color.channelR, label: "Right")
             }
             .frame(height: Self.meterHeight)
         }
@@ -73,13 +67,9 @@ struct MasterSection: View {
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, Tokens.Spacing.panelPadH)
         .padding(.vertical, Tokens.Spacing.panelPadV)
-        .onReceive(displayTimer) { date in
-            guard store.playing else { return }
-            updateMeters(time: date.timeIntervalSinceReferenceDate)
-        }
-        .onChange(of: store.playing) { _, isPlaying in
-            if !isPlaying { peakL = 0; peakR = 0; holdL = 0; holdR = 0; holdAgeL = 0; holdAgeR = 0 }
-        }
+        // Re-keyed on `playing`: the loop only runs while audio is playing, plus the
+        // short release tail, instead of waking the main run loop at 60 Hz forever.
+        .task(id: store.playing) { await runMeters(playing: store.playing) }
     }
 
     // MARK: - Link button (wide layout only)
@@ -118,53 +108,33 @@ struct MasterSection: View {
 
     // MARK: - Meter computation
 
-    private func updateMeters(time: Double) {
-        updateChannel(
-            scope: scopeL,
-            buf: &meterBuf,
-            time: time,
-            peak: &peakL,
-            hold: &holdL,
-            holdAge: &holdAgeL
-        )
-        updateChannel(
-            scope: scopeR,
-            buf: &meterBuf,
-            time: time,
-            peak: &peakR,
-            hold: &holdR,
-            holdAge: &holdAgeR
-        )
+    /// Drives the meters until they have nothing left to show. While playing it never
+    /// returns (the task is cancelled when `playing` changes); once stopped it ends as
+    /// soon as both bars have fallen to zero.
+    private func runMeters(playing: Bool) async {
+        while !Task.isCancelled {
+            if playing {
+                levelL = measure(scopeL)
+                levelR = measure(scopeR)
+            } else {
+                let fall = Self.decayDbPerSec / -Self.meterFloorDb * Self.frameSeconds
+                levelL = max(0, levelL - fall)
+                levelR = max(0, levelR - fall)
+                if levelL == 0, levelR == 0 { return }
+            }
+            try? await Task.sleep(for: Self.frameInterval)
+        }
     }
 
-    private func updateChannel(
-        scope: SampleRingBuffer,
-        buf: inout [Float],
-        time: Double,
-        peak: inout Float,
-        hold: inout Float,
-        holdAge: inout Double
-    ) {
-        let n = scope.readLatest(Self.readBlock, into: &buf)
-        guard n > 0 else {
-            peak = 0; hold = 0; holdAge = 0
-            return
-        }
-        var rms: Float = 0
+    /// RMS of the latest block, mapped to the meter's [0, 1] range.
+    private func measure(_ scope: SampleRingBuffer) -> Float {
+        let n = scope.readLatest(Self.readBlock, into: &meterBuf)
+        guard n > 0 else { return 0 }
+        var sumSquares: Float = 0
         for k in 0 ..< n {
-            rms += buf[k] * buf[k]
+            sumSquares += meterBuf[k] * meterBuf[k]
         }
-        rms = sqrtf(rms / Float(n))
-        let scaled = Self.meterScale(rms)
-        peak = scaled
-
-        let dt = Float(1.0 / 60)
-        if scaled >= hold {
-            hold = scaled
-            holdAge = time
-        } else if time - holdAge > Self.holdDuration {
-            hold = max(hold - Self.decayDbPerSec / (-Self.meterFloorDb) * dt, scaled)
-        }
+        return Self.meterScale(sqrtf(sumSquares / Float(n)))
     }
 
     /// Maps a linear RMS amplitude to a [0, 1] meter position using a dB scale.
