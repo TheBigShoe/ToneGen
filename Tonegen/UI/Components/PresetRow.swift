@@ -95,6 +95,9 @@ private struct RepeatButton: View {
                     .onChanged { _ in startIfNeeded() }
                     .onEnded { _ in stopTimer() }
             )
+            // A view removed mid-press never receives the drag's onEnded, which would
+            // leave the repeat timer firing against a dead view.
+            .onDisappear { stopTimer() }
     }
 
     private func startIfNeeded() {
