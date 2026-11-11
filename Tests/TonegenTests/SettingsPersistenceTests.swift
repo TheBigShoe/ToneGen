@@ -7,7 +7,7 @@ final class SettingsPersistenceTests: XCTestCase {
     private var suiteName = ""
     private var defaults = UserDefaults.standard
 
-    // Async so the overrides run on the main actor like the rest of the class.
+    /// Async so the overrides run on the main actor like the rest of the class.
     override func setUp() async throws {
         try await super.setUp()
         suiteName = "SettingsPersistenceTests-\(UUID().uuidString)"

@@ -2,10 +2,10 @@
 // Writer: audio render thread. Reader: display thread (TimelineView at 60 Hz).
 import os
 
-/// Single-producer / single-consumer sample ring fed one render block at a time.
 // @unchecked: `buf` and `writeCount` are mutated without a lock. Safe because only the
 // render thread calls `write` (sole owner of `writeCount`), and the reader only touches
 // slots behind the index it acquires through `idxLock` — the SPSC invariant above.
+/// Single-producer / single-consumer sample ring fed one render block at a time.
 final class SampleRingBuffer: @unchecked Sendable {
     private let capacity: Int
     private let mask: Int

@@ -5,6 +5,9 @@ import MediaPlayer
 /// controlled from the lock screen, Control Center and headset buttons.
 @MainActor
 final class NowPlayingController {
+    private typealias RemoteAction = @MainActor @Sendable (NowPlayingController)
+        -> MPRemoteCommandHandlerStatus
+
     private let store: TonegenStore
     private var targets: [(MPRemoteCommand, Any)] = []
 
@@ -42,7 +45,7 @@ final class NowPlayingController {
 
     private func add(
         _ command: MPRemoteCommand,
-        _ action: @escaping @MainActor @Sendable (NowPlayingController) -> MPRemoteCommandHandlerStatus
+        _ action: @escaping RemoteAction
     ) {
         command.isEnabled = true
         let target = command.addTarget(handler: Self.makeHandler(owner: self, action: action))
@@ -53,9 +56,9 @@ final class NowPlayingController {
     /// types it as a plain (non-Sendable) block, so a closure built in this class would
     /// inherit main-actor isolation and Swift 6 would trap if MediaPlayer called it on
     /// another thread. The delivery thread is not documented, hence the explicit hop.
-    private nonisolated static func makeHandler(
+    private nonisolated static func makeHandler( // swiftlint:disable:this modifier_order
         owner: NowPlayingController,
-        action: @escaping @MainActor @Sendable (NowPlayingController) -> MPRemoteCommandHandlerStatus
+        action: @escaping RemoteAction
     ) -> @Sendable (MPRemoteCommandEvent) -> MPRemoteCommandHandlerStatus {
         { [weak owner] _ in
             guard let owner else { return .commandFailed }

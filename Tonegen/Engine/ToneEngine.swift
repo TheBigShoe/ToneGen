@@ -194,7 +194,7 @@ final class ToneEngine {
     /// would inherit main-actor isolation and Swift 6 would trap on its first call from
     /// the audio I/O thread. `@Sendable` makes the compiler prove it captures only the
     /// (Sendable) renderer.
-    private nonisolated static func attachSource(
+    private nonisolated static func attachSource( // swiftlint:disable:this modifier_order
         renderer: ToneRenderer,
         format: AVAudioFormat,
         to engine: AVAudioEngine
