@@ -3,7 +3,7 @@
 ## System Overview
 
 Three layers, one direction of data flow for parameter changes, one direction
-for visualization data:
+for meter data:
 
 ```
    ┌──────────────────────────────────────────────────────────┐
@@ -29,13 +29,13 @@ for visualization data:
    │   ToneRenderer: per-sample DSP                           │
    │     ├─ PhaseOscillator × 2 (L, R)                        │
    │     ├─ Smoothers for freq, amp, phase, master            │
-   │     └─ Output peak meter (atomic write back to UI)       │
+   │     └─ Output block copied to a ring buffer per channel   │
    └────────────────────┬─────────────────────────────────────┘
                         │  ring buffer of recent samples
                         ▼
    ┌──────────────────────────────────────────────────────────┐
-   │                 Visualization                            │
-   │   OscilloscopeView reads ring buffer on CADisplayLink    │
+   │                   Level meters                           │
+   │   MasterSection reads the ring buffer while playing      │
    └──────────────────────────────────────────────────────────┘
 ```
 
@@ -149,7 +149,6 @@ buffer (~5 ms) of stale parameters, which is inaudible.
 |-----------------------------|-------------------------------------------|
 | MainActor                   | `TonegenStore`, all SwiftUI views         |
 | Audio I/O thread            | `AVSourceNode` render block               |
-| CADisplayLink               | Oscilloscope rendering (60/120 Hz)        |
 | Background task             | (none in v1)                              |
 
 Never call into the store from the audio thread. Never block on the audio
@@ -170,8 +169,7 @@ thread. Never `await` from the audio thread (it's not an async context).
   AVAudioEngine.outputNode
 ```
 
-Single source node, stereo output, no taps in production (a tap is added on
-`outputNode` in debug builds for the scope ring buffer; see Visualization).
+Single source node, stereo output, no taps.
 No mixer between source and main mixer — we do our own gain in the renderer
 to keep parameter smoothing cohesive.
 
@@ -188,22 +186,20 @@ Inside `ToneRenderer.render(...)`, per buffer:
    - Apply master gain (smoothed).
    - Apply mute (instantaneous, but multiplied by smoothed mute envelope to avoid clicks; see audio-engine.md).
    - Write L, R to the audio buffer.
-4. Update peak meters; publish via atomic write back to UI.
-5. Push the same samples into the scope ring buffer.
+4. Copy the finished block into each channel's `SampleRingBuffer` for the meters.
 
-## Visualization Data Flow
+## Meter Data Flow
 
-The scope shows the *actual* generated signal, not a re-synthesis from
-parameters. This way the user sees exactly what's coming out — including any
-mute envelope, smoothing transient, or eventual antialiasing artifact.
+The meters show the *actual* generated signal, not a level computed from
+parameters, so they include the mute envelope and smoothing transients.
 
-The renderer writes into a `SampleRingBuffer` (lock-free SPSC, fixed size,
-~50 ms of samples at 48 kHz = 2400 frames per channel = ~20 KB). The
-`OscilloscopeView` reads from a `CADisplayLink` callback on the main thread,
-copies the latest window into a local buffer, and draws.
+The renderer writes each finished block into a `SampleRingBuffer` per channel
+(single writer, single reader, 4096 samples ≈ 85 ms at 48 kHz). While playing,
+`MasterSection` reads the latest 512 samples about 60 times a second on the
+main thread and draws their RMS. A stale or late block only delays the bar; it
+is a display, not a measurement instrument.
 
-If the scope draws stale frames during heavy UI churn — that's fine. It's a
-display, not a measurement instrument.
+There is no oscilloscope in v1.
 
 ## Lifecycle
 

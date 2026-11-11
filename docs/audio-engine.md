@@ -429,28 +429,15 @@ need to spin the audio HW until the user has indicated intent.
 
 ## Output Metering
 
-In the render block, track per-channel peak per buffer:
+The renderer does no metering maths. After its sample loop it copies the
+finished block into a per-channel `SampleRingBuffer` (4096 samples) with one
+`withLockIfAvailable` per channel per buffer; on contention the samples are
+still stored and become visible with the next block.
 
-```swift
-var peakL: Float = 0
-var peakR: Float = 0
-for n in 0..<frameCount {
-    // ... write samples ...
-    peakL = max(peakL, abs(sampleL))
-    peakR = max(peakR, abs(sampleR))
-}
-publishedPeakL.store(peakL, order: .relaxed)   // via atomic float
-publishedPeakR.store(peakR, order: .relaxed)
-```
-
-UI reads these via `CADisplayLink` and applies a peak-hold-with-decay curve
-on its end (audio thread doesn't compute the decay; it's a display concern).
-
-For atomic floats, use `OSAllocatedUnfairLock<Float>` is overkill — use
-`std::atomic<float>` from `Synchronization` (Swift 5.10+) or a tiny C
-shim. If the version constraint is iOS 17.0, the `Synchronization` module
-isn't available; `OSAllocatedUnfairLock<Float>` is fine for the meter (the
-lock is held for nanoseconds and the meter tolerates contention loss).
+`MasterSection` reads the latest 512 samples per channel about 60 times a
+second **only while playing**, computes their RMS on the main thread, and maps
+it to a −60…0 dB bar. After stop the bars fall at 60 dB/s and the loop ends.
+The meters show RMS, not peak.
 
 ## Glitch Hunt — Checklist
 
