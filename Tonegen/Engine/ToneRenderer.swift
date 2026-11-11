@@ -243,7 +243,7 @@ final class ToneRenderer {
         switch wave {
         case .sine: sinf(2 * .pi * t)
         case .square: squareBLEP(t, dt: dt)
-        case .triangle: t < 0.5 ? (4 * t - 1) : (3 - 4 * t)
+        case .triangle: triangleBLAMP(t, dt: dt)
         case .saw: sawBLEP(t, dt: dt)
         default: 0
         }

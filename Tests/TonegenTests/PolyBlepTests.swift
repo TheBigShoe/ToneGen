@@ -89,6 +89,66 @@ final class PolyBlepTests: XCTestCase {
         )
     }
 
+    // MARK: - Triangle (PolyBLAMP)
+
+    func testTriangleBLAMPReducesAliasingVsNaive() {
+        // (fundamental, alias): 5 kHz H9 = 45 kHz folds to 3 kHz; 5 kHz H11 = 55 kHz folds
+        // to 7 kHz; 7 kHz H7 = 49 kHz folds to 1 kHz. None is an odd multiple of the
+        // fundamental, so all energy there is aliasing.
+        let cases: [(hz: Float, alias: Float, minDb: Float)] = [
+            (5000, 3000, 30),
+            (5000, 7000, 25),
+            (7000, 1000, 40)
+        ]
+        for test in cases {
+            let naive = aliasAmplitude(waveform: .triangle, hz: test.hz, aliasHz: test.alias)
+            let blamp = aliasAmplitude(
+                waveform: .triangle,
+                hz: test.hz,
+                aliasHz: test.alias,
+                useBLEP: true
+            )
+            let suppressionDb = 20 * log10(naive / max(blamp, 1e-10))
+            XCTAssertGreaterThan(
+                suppressionDb,
+                test.minDb,
+                "Alias at \(test.alias) Hz from \(test.hz) Hz: only \(suppressionDb) dB"
+            )
+        }
+    }
+
+    func testTriangleBLAMPMatchesIdealTriangleAt100Hz() {
+        // At 100 Hz the naive triangle's aliasing is negligible, so it is the reference shape.
+        let dt: Float = 100 / sampleRate
+        let ideal = render(waveform: .triangle, useBLEP: false, hz: 100)
+        let blamp = render(waveform: .triangle, useBLEP: true, hz: 100)
+        let maxDiff = zip(ideal, blamp).map { abs($0 - $1) }.max() ?? 1
+        XCTAssertLessThan(maxDiff, 0.005, "Corner rounding at 100 Hz should be tiny")
+        // Same phase: corners (−1 at t=0, +1 at t=0.5) sit where the naive ones do.
+        XCTAssertEqual(triangleBLAMP(0.25, dt: dt), 0, accuracy: 1e-5)
+        XCTAssertEqual(triangleBLAMP(0.75, dt: dt), 0, accuracy: 1e-5)
+    }
+
+    func testTriangleBLAMPLevelFlatWithoutDCAcrossBand() {
+        // Fundamental of an ideal ±1 triangle is 8/π².
+        let idealFundamental: Float = 8 / (.pi * .pi)
+        for rate: Float in [48000, 44100] {
+            for hz: Float in [20, 100, 1000, 5000, 10000, 15000, 20000] {
+                let x = render(waveform: .triangle, useBLEP: true, hz: hz, rate: rate)
+                let fundamental = goertzel(x, hz: hz, rate: rate)
+                let levelDb = 20 * log10(fundamental / idealFundamental)
+                let mean = x.reduce(0, +) / Float(x.count)
+                let peak = x.map(abs).max() ?? 0
+                let label = "\(hz) Hz @ \(rate)"
+                XCTAssertEqual(levelDb, 0, accuracy: 0.1, "Fundamental level off at \(label)")
+                XCTAssertEqual(mean, 0, accuracy: 1e-4, "DC offset at \(label)")
+                XCTAssertLessThanOrEqual(peak, 1.0001, "Overshoot at \(label)")
+                // Above ~7 kHz only the fundamental is in band, whose peak is 8/π² ≈ 0.81.
+                XCTAssertGreaterThan(peak, 0.78, "Peak collapsed at \(label)")
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     /// Goertzel amplitude at a specific alias frequency (a frequency with no legitimate harmonic).
@@ -103,22 +163,31 @@ final class PolyBlepTests: XCTestCase {
     }
 
     /// Goertzel amplitude at `hz` Hz.
-    private func goertzel(_ samples: [Float], hz: Float) -> Float {
-        let omega = 2 * Double.pi * Double(hz) / Double(sampleRate)
-        let coeff = Float(2.0 * cos(omega))
-        var q1: Float = 0, q2: Float = 0
+    /// Accumulates in Double: at 20 Hz the coefficient is within 1e-6 of 2 and a Float
+    /// recursion over a second of samples drifts by a tenth of a dB.
+    private func goertzel(_ samples: [Float], hz: Float, rate: Float? = nil) -> Float {
+        let omega = 2 * Double.pi * Double(hz) / Double(rate ?? sampleRate)
+        let coeff = 2.0 * cos(omega)
+        var q1 = 0.0, q2 = 0.0
         for s in samples {
-            let q0 = coeff * q1 - q2 + s
+            let q0 = coeff * q1 - q2 + Double(s)
             q2 = q1
             q1 = q0
         }
         let power = q1 * q1 + q2 * q2 - q1 * q2 * coeff
-        return sqrt(max(power, 0)) / Float(samples.count / 2)
+        return Float(sqrt(max(power, 0)) / Double(samples.count / 2))
     }
 
-    private func render(waveform: Waveform, useBLEP: Bool, hz: Float) -> [Float] {
-        let n = 48000 // 1 s at 48 kHz
-        let dt = hz / sampleRate
+    /// Renders one second at `rate` (default `sampleRate`).
+    private func render(
+        waveform: Waveform,
+        useBLEP: Bool,
+        hz: Float,
+        rate: Float? = nil
+    ) -> [Float] {
+        let sr = rate ?? sampleRate
+        let n = Int(sr)
+        let dt = hz / sr
         var phase: Float = 0
         var out = [Float](repeating: 0, count: n)
         for i in 0 ..< n {
@@ -129,6 +198,9 @@ final class PolyBlepTests: XCTestCase {
             switch waveform {
             case .saw: out[i] = useBLEP ? sawBLEP(phase, dt: dt) : (2 * phase - 1)
             case .square: out[i] = useBLEP ? squareBLEP(phase, dt: dt) : (phase < 0.5 ? 1 : -1)
+            case .triangle:
+                out[i] = useBLEP ? triangleBLAMP(phase, dt: dt) :
+                    (phase < 0.5 ? 4 * phase - 1 : 3 - 4 * phase)
             default: break
             }
         }

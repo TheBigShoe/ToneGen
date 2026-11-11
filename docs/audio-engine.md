@@ -172,8 +172,9 @@ func triangle(_ t: Float) -> Float {
 }
 ```
 
-Triangle aliasing is mild (energy falls off as 1/n²). For v1 we ship the
-naive form. If a user complains, integrate PolyBLAMP.
+That is the naive shape (−1 at t=0, +1 at t=0.5). Its aliasing is milder than
+square's (harmonics fall off as 1/n²) but still clearly audible above a few
+kHz, so production uses `triangleBLAMP` (see below).
 
 ### Noise
 
@@ -235,7 +236,7 @@ is nothing to click, so the change applies immediately.
 ## Antialiasing — PolyBLEP
 
 For square and saw, subtract a band-limited step (PolyBLEP) at each
-discontinuity. The function:
+discontinuity. Triangle uses the integrated form, PolyBLAMP (below). The function:
 
 ```swift
 @inline(__always)
@@ -276,6 +277,53 @@ return raw + corr
 
 Below ~1 kHz, PolyBLEP and naive sound identical. Above 5 kHz, naive square
 buzzes audibly; PolyBLEP is clean to Nyquist.
+
+### Triangle with PolyBLAMP
+
+The triangle has no jumps, only corners where the slope flips by ±8 per cycle
+(±8·dt per sample). PolyBLAMP — the integral of the PolyBLEP residual, i.e.
+the same 2-sample kernel — rounds each corner:
+
+```swift
+@inline(__always)
+func polyBlamp(_ t: Float, dt: Float) -> Float {
+    if t < dt {
+        let x = 1 - t / dt
+        return x * x * x / 6
+    } else if t > 1 - dt {
+        let x = 1 + (t - 1) / dt
+        return x * x * x / 6
+    } else {
+        return 0
+    }
+}
+
+let naive = t < 0.5 ? 4 * t - 1 : 3 - 4 * t
+let t2    = t + 0.5 < 1 ? t + 0.5 : t - 0.5
+let tri   = (naive + 8 * dt * (polyBlamp(t, dt: dt) - polyBlamp(t2, dt: dt)))
+            * blampDroopCompensation(dt: dt)
+```
+
+The correction is symmetric about each corner, so it is zero-phase: the
+band-limited triangle keeps the naive triangle's phase exactly (no residual
+offset; its fundamental lags the sine by a quarter cycle, as it always has)
+and has no DC offset.
+
+**Droop compensation.** PolyBLEP/BLAMP act like convolving the ideal waveform
+with a 2-sample triangular kernel, whose response is sinc²(f/fs) — −1.3 dB at
+10 kHz and −5.3 dB at 20 kHz (48 kHz). For a test-tone generator the level
+must not depend on frequency, so the triangle is multiplied by
+`1 / sinc²(dt)`. That holds the fundamental within 0.1 dB of an ideal
+triangle's (8/π²) from 20 Hz to 20 kHz at 44.1 and 48 kHz; peaks stay ≤ 1 and
+settle at 8/π² ≈ 0.81 once only the fundamental is below Nyquist. Square and
+saw do not have this compensation yet, so their fundamental droops the same
+way at the top of the band.
+
+Measured alias suppression versus naive (48 kHz, `PolyBlepTests`): ≈ 48 dB
+at 3 kHz from a 5 kHz tone, ≈ 38 dB at 7 kHz from 5 kHz, ≈ 68 dB at 1 kHz
+from 7 kHz. Aliases folding from just above Nyquist are suppressed less
+(≈ 20 dB for 7 kHz's 5th harmonic folding to 13 kHz) — a limit of the
+2-point kernel.
 
 ## Parameter Smoothing
 
