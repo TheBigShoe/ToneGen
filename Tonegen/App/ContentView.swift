@@ -133,16 +133,10 @@ struct ContentView: View {
                 .tracking(2)
                 .foregroundStyle(Tokens.Color.textSecondary)
             Spacer()
-            Text(sampleRateLabel)
-                .font(Tokens.Font.readoutXs)
-                .foregroundStyle(Tokens.Color.textGhost)
+            SampleRateMenu(store: store, outputRate: outputRate)
         }
         .padding(.horizontal, Tokens.Spacing.panelPadH)
         .padding(.vertical, Tokens.Spacing.md)
-    }
-
-    private var sampleRateLabel: String {
-        OutputRate.label(for: outputRate.sampleRate)
     }
 
     private var appFooter: some View {
