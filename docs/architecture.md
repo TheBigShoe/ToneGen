@@ -160,7 +160,7 @@ thread. Never `await` from the audio thread (it's not an async context).
   ToneRenderer (AVSourceNode)
         │
         ▼
-  [stereo float32, 48 kHz]
+  [stereo float32, at the hardware output rate]
         │
         ▼
   AVAudioEngine.mainMixerNode
@@ -169,7 +169,11 @@ thread. Never `await` from the audio thread (it's not an async context).
   AVAudioEngine.outputNode
 ```
 
-Single source node, stereo output, no taps.
+Single source node, stereo output, no taps. The source node's format uses the
+rate the output hardware runs at (44.1, 48, 96 kHz …), re-read on every
+hardware start, so the main mixer never resamples the test signal. When the
+rate moves, `ToneEngine` swaps in a new source node at the new rate and
+retunes the same `ToneRenderer`; see audio-engine.md § Sample Rate.
 No mixer between source and main mixer — we do our own gain in the renderer
 to keep parameter smoothing cohesive.
 
@@ -212,6 +216,7 @@ There is no oscilloscope in v1.
 | App backgrounded (stopped)  | Engine left running but silent; no battery cost beyond idle |
 | Interruption (call, alarm)  | `engine.pause()`, restart on resume                  |
 | Route change (headphones)   | Engine resumes automatically; UI reflects new device |
+| Hardware rate change        | System stops the engine; restart moves the graph and renderer to the new rate; header label follows `ToneEngine.sampleRate` |
 | App terminate               | `engine.stop()`, session deactivated                 |
 
 Audio session configuration is **once** at launch. Don't reconfigure on play.

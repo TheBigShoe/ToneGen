@@ -6,35 +6,74 @@ Everything about the DSP path. If you're touching `Engine/`, read this first.
 
 ```swift
 final class ToneEngine {
-    private let engine = AVAudioEngine()
-    private let format: AVAudioFormat       // 48 kHz, stereo, float32
-    private var sourceNode: AVAudioSourceNode!
-    private let renderer: ToneRenderer
+    private var engine: AVAudioEngine
+    private var sourceNode: AVAudioSourceNode
+    private let renderer: ToneRenderer       // one instance for the app's lifetime
+    private var format: AVAudioFormat        // stereo float32 at the hardware rate
+    private(set) var sampleRate: Double
 
-    init(sampleRate: Double = 48_000) {
-        format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                               sampleRate: sampleRate,
-                               channels: 2,
-                               interleaved: false)!
-        renderer = ToneRenderer(sampleRate: Float(sampleRate))
-        sourceNode = AVAudioSourceNode(format: format) { [renderer] silence,
-                                                          timestamp,
-                                                          frameCount,
-                                                          audioBufferList in
-            renderer.render(frames: Int(frameCount),
-                            buffers: audioBufferList,
-                            silence: silence)
+    private static func attachSource(renderer: ToneRenderer,
+                                     format: AVAudioFormat,
+                                     to engine: AVAudioEngine) -> AVAudioSourceNode {
+        let node = AVAudioSourceNode(format: format) { silence, _, frameCount, abl in
+            renderer.render(frames: Int(frameCount), buffers: abl, silence: silence)
             return noErr
         }
-        engine.attach(sourceNode)
-        engine.connect(sourceNode, to: engine.mainMixerNode, format: format)
+        engine.attach(node)
+        engine.connect(node, to: engine.mainMixerNode, format: format)
+        return node
     }
 }
 ```
 
-The closure captures `renderer` weakly via `[renderer]` (it's a class — so a
-strong capture, but `ToneRenderer` is owned solely by `ToneEngine`, which
-outlives the closure). Do not capture `self` in the render closure.
+The closure captures `renderer` strongly (it's a class, owned solely by
+`ToneEngine`, which outlives the closure). Do not capture `self` in the render
+closure.
+
+## Sample Rate
+
+The generator runs at the **hardware output rate**, not a fixed 48 kHz.
+Otherwise the main mixer would resample a precision test tone whenever the
+route runs at 44.1 kHz (Bluetooth) or 96 kHz (USB interface).
+
+The rate is resolved by `ToneEngine.resolveSampleRate`:
+`engine.outputNode.outputFormat(forBus: 0).sampleRate`, else
+`AVAudioSession.sampleRate`, else 48 kHz (either can report 0 before the
+hardware is configured). It is re-read in `startHardware()` immediately before
+every `engine.start()`, which covers launch, the restart after an
+`AVAudioEngineConfigurationChange`, a start after the route changed while
+stopped, and `rebuild()` after a media-services reset. If it differs from
+`ToneEngine.sampleRate`, `followHardwareRate()`:
+
+1. calls `engine.stop()` (synchronous — when it returns no render callback is
+   running, and none can start before the `engine.start()` that follows on the
+   same main thread);
+2. detaches the old source node (its render format is fixed at creation);
+3. calls `ToneRenderer.setSampleRate(_:)`;
+4. attaches a new source node at the new rate, sharing the same renderer;
+5. publishes the rate through `onSampleRateChange` (the header label).
+
+Because the renderer is only mutated while no callback can run, the render
+path gains no lock, atomic or flag. `ToneRenderer.setSampleRate` is not
+thread-safe and must never be called with the engine running.
+
+**What carries over:** every smoother's current value and target (frequency,
+amplitude, channel mute gates, phase offset, master gain), both phase
+accumulators, crossfade progress (its remaining length is rescaled), noise
+generator state, the last parameter snapshot, the `ParamsBridge`, and the
+`scopeL`/`scopeR` ring buffers the meters captured at launch.
+
+**What is retuned:** oscillator increments (`freq / sampleRate`), every
+smoother coefficient (time constants stay fixed in milliseconds), and the
+5 ms waveform crossfade length. PolyBLEP/BLAMP use `dt = freq / sampleRate`
+per sample, so they follow automatically.
+
+**What resets:** only the mute envelope's current value, to 0. The hardware
+was stopped under a live signal; restarting at full level would step from
+silence to mid-waveform, so the output fades back in over 5 ms instead.
+
+**Not retuned:** the pink-noise filter (see Noise). The session's preferred
+rate (48 kHz) stays as a preference only; the hardware decides.
 
 ## Audio Session
 
@@ -45,6 +84,10 @@ try session.setPreferredSampleRate(48_000)
 try session.setPreferredIOBufferDuration(0.005)   // ~256 samples @ 48 kHz
 try session.setActive(true)
 ```
+
+The preferred rate is a request the hardware may ignore (AirPods run at
+44.1 kHz or lower); the engine generates at whatever rate is granted — see
+§ Sample Rate.
 
 `.playback`, not `.playAndRecord` — this is a generator. Recording category
 takes the input path and burns more battery for nothing.
@@ -217,6 +260,12 @@ struct PinkNoise {
 }
 ```
 
+The Kellet coefficients are fixed (fitted at 44.1 kHz) and are not retuned on
+a rate change. Every pole frequency scales with the rate, so the −3 dB/octave
+band's low edge sits near 9 Hz at 44.1 kHz, ~10 Hz at 48 kHz and ~20 Hz at
+96 kHz; the upper edge only moves up. 20 Hz–20 kHz stays pink at every rate;
+below 20 Hz at 88.2/96 kHz the spectrum flattens slightly. Accepted for v1.
+
 L and R noise generators have **separate seeds** — otherwise the noise is
 correlated and stereo-mono behavior gets weird.
 
@@ -341,14 +390,19 @@ One-pole lowpass on every user-controllable parameter:
 struct Smoother {
     private var current: Float
     var target: Float
-    private let alpha: Float
+    private var alpha: Float
+    private let timeConstantMs: Float
 
     /// `timeConstantMs` ≈ 63% of the way to target.
     init(initial: Float, sampleRate: Float, timeConstantMs: Float) {
         current = initial
         target  = initial
+        self.timeConstantMs = timeConstantMs
         alpha   = 1 - expf(-1000 / (timeConstantMs * sampleRate))
     }
+
+    /// New rate, same time constant in ms; value and target are kept.
+    mutating func setSampleRate(_ sampleRate: Float) { … }
 
     @inline(__always)
     mutating func next() -> Float {
@@ -453,8 +507,10 @@ When something glitches, check in this order:
    format? Run `engine.outputNode.outputFormat(forBus: 0)` and confirm.
 6. **Route change**: did the user plug in headphones during playback? Engine
    needs to handle the route change notification.
-7. **Sample rate change**: hardware can hand you 44.1 kHz on AirPods. The
-   engine should re-init smoothers when the sample rate changes.
+7. **Sample rate change**: hardware can hand you 44.1 kHz on AirPods. Check
+   `ToneEngine.sampleRate` (and the header label) against
+   `engine.outputNode.outputFormat(forBus: 0).sampleRate`; they must match
+   after every start. See § Sample Rate.
 
 ## Testing the Engine
 
@@ -465,6 +521,10 @@ Unit-testable pieces (run in `XCTest`, no real audio):
 - `polyBlep`: compare to a reference Python impl on a fixed input
 - `WhiteNoise.next()`: histogram across N samples, verify mean ≈ 0, var ≈ 1/3
 - Waveform purity: render N samples, FFT, verify expected harmonic structure
+- Rate changes (`SampleRateChangeTests`): move a renderer 48 → 44.1 / 96 kHz,
+  check frequency by zero crossings, carry-over of smoothed values, and
+  smoother time constants at the new rate. The engine-side rate switch needs
+  real hardware that changes rate; the simulator reports one rate only.
 
 Render-block testing — drive the renderer directly with a fixed param
 snapshot and inspect the output buffer. No `AVAudioEngine` involved. This is
