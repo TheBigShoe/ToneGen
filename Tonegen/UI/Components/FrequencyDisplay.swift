@@ -46,6 +46,7 @@ struct FrequencyDisplay: View {
         .accessibilityElement()
         .accessibilityLabel("Frequency")
         .accessibilityValue("\(formatted.value) \(formatted.unit), \(noteLabel)")
+        .accessibilityIdentifier("frequencyReadout")
     }
 }
 
