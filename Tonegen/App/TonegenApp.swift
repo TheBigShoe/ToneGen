@@ -83,7 +83,7 @@ struct TonegenApp: App {
         ) { notification in
             let raw = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
             MainActor.assumeIsolated {
-                handleRouteChange(reason: raw, store: store, outputRate: outputRate)
+                handleRouteChange(reason: raw, engine: engine, store: store, outputRate: outputRate)
             }
         }
         nc.addObserver(
@@ -136,15 +136,25 @@ struct TonegenApp: App {
     @MainActor
     private static func handleRouteChange(
         reason raw: UInt?,
+        engine: ToneEngine,
         store: TonegenStore,
         outputRate: OutputRate
     ) {
         outputRate.refresh()
-        // Headphones unplugged: stop rather than blast the tone out of the speaker.
-        guard let raw,
-              AVAudioSession.RouteChangeReason(rawValue: raw) == .oldDeviceUnavailable
-        else { return }
-        store.setPlaying(false)
+        guard let raw, let reason = AVAudioSession.RouteChangeReason(rawValue: raw) else { return }
+        switch reason {
+        case .oldDeviceUnavailable:
+            // Headphones unplugged: stop rather than blast the tone out of the speaker.
+            store.setPlaying(false)
+        case .newDeviceAvailable, .override, .categoryChange, .routeConfigurationChange,
+             .wakeFromSleep:
+            // The system can stop the engine on these without a configuration-change
+            // notification, which would leave the UI claiming to generate in silence.
+            guard store.playing else { return }
+            if !engine.ensureRunning() { store.outputLost() }
+        default:
+            break
+        }
     }
 
     /// The media server crashed and restarted: every audio object is dead and the

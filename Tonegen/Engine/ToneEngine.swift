@@ -98,6 +98,20 @@ final class ToneEngine {
         }
     }
 
+    /// Brings the hardware back if playback is intended but the underlying engine
+    /// is no longer running (a route change can stop it without a configuration
+    /// change notification). Never starts audio the user had stopped.
+    /// - Returns: `true` if output is live or was not wanted; `false` if the
+    ///   restart failed.
+    @discardableResult
+    func ensureRunning() -> Bool {
+        guard running else { return true }
+        if engine.isRunning { return true }
+        if startHardware() { return true }
+        running = false
+        return false
+    }
+
     /// Call when an audio session interruption begins. The system has already
     /// silenced us; this records that and leaves the session alone so the
     /// matching interruption-ended notification still arrives.
