@@ -115,6 +115,7 @@
 		BFDAB395A333BD21368A9887 /* FrequencyMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrequencyMathTests.swift; sourceTree = "<group>"; };
 		C58DDA13B360C7B887192674 /* LinearSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinearSlider.swift; sourceTree = "<group>"; };
 		C96A04C779983DC0E7E757DB /* FrequencyDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrequencyDisplay.swift; sourceTree = "<group>"; };
+		CC2B46C8239C893CDB80D047 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 		CD8CF86FC009BB7A573D5F48 /* TonegenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TonegenStore.swift; sourceTree = "<group>"; };
 		D1918E93DE0987D2D22667D1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D8FBC31B838EBDDCDA5D49F9 /* TonegenStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TonegenStoreTests.swift; sourceTree = "<group>"; };
@@ -232,9 +233,18 @@
 			path = Tonegen;
 			sourceTree = "<group>";
 		};
+		CB363EC7F2E0C6D03D2CE469 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				CC2B46C8239C893CDB80D047 /* Signing.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
 		CD51CBA21983B0EC86153061 = {
 			isa = PBXGroup;
 			children = (
+				CB363EC7F2E0C6D03D2CE469 /* Config */,
 				C2439A5075A5099BDBE49AF8 /* Tonegen */,
 				FD675945CF176F4798D215A9 /* TonegenTests */,
 				DC1BC54841D7C2E1E7B9887F /* TonegenUITests */,
@@ -508,6 +518,7 @@
 		};
 		4F062AB5800E694EECE95FFF /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = CC2B46C8239C893CDB80D047 /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -625,6 +636,7 @@
 		};
 		AC0ED9BF0140395895D0DB71 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = CC2B46C8239C893CDB80D047 /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

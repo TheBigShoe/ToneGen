@@ -5,8 +5,6 @@ waveform (sine, square, triangle, saw, noise), frequency (20 Hz – 20 kHz, log
 scale), amplitude (dBFS), and phase. Built for audio engineers who want a
 clean, fast bench tool on the device already in their pocket.
 
-> Status: preparing for App Store release. See `docs/app-store-readiness.md`.
-
 ## Highlights
 
 - Native SwiftUI + `AVAudioEngine` — no third-party DSP libs
@@ -17,18 +15,31 @@ clean, fast bench tool on the device already in their pocket.
 ## Getting Started
 
 Open `Tonegen.xcodeproj` in Xcode 26 or later and run on an iPhone or iPad
-(iOS 17+). For development specifics, build commands, and conventions, see
-`CLAUDE.md`.
+(iOS 17+). To run on a device, create `Config/Local.xcconfig` containing your
+Apple team ID:
+
+```
+DEVELOPMENT_TEAM = YOURTEAMID
+```
+
+The project file is generated from `project.yml` with
+[XcodeGen](https://github.com/yonaskolb/XcodeGen); run `make generate` after
+changing it. `make test` runs the unit tests.
+
+## Using ToneGen
+
+- Press the round button to start and stop generation.
+- Choose **CH·L**, **CH·R**, or the link tab to edit one channel or both. On
+  iPad the two channels sit side by side with a LINK / SPLIT switch.
+- Pick a waveform, set the frequency with the slider, the step buttons or a
+  preset, then set level and phase.
+- Start with the volume low: sustained tones at high level can damage hearing
+  and loudspeakers.
 
 ## Documentation
 
-- `CLAUDE.md` — entry point, critical rules, file layout
 - `docs/architecture.md` — system architecture and data flow
 - `docs/audio-engine.md` — DSP design (oscillators, antialiasing, smoothing)
-- `docs/ui-design.md` — design system and component spec
-- `docs/work-plan.md` — 18-package work breakdown
-- `docs/conventions.md` — Swift style and repo conventions
-- `mockup/ToneGenMockup.jsx` — interactive visual reference (React)
 
 ## Support
 

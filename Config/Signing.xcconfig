@@ -1,0 +1,6 @@
+// Shared signing settings. Machine-specific values (your Apple team ID) go in
+// Config/Local.xcconfig, which is not checked in:
+//
+//     DEVELOPMENT_TEAM = YOURTEAMID
+//
+#include? "Local.xcconfig"

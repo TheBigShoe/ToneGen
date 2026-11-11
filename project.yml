@@ -19,11 +19,16 @@ settings:
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     ENABLE_PREVIEWS: YES
     DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+    # The Apple team ID for device builds comes from Config/Local.xcconfig (not checked in).
     CODE_SIGN_STYLE: Automatic
 
 configs:
   Debug: debug
   Release: release
+
+configFiles:
+  Debug: Config/Signing.xcconfig
+  Release: Config/Signing.xcconfig
 
 targets:
   Tonegen:
