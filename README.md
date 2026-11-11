@@ -10,7 +10,9 @@ clean, fast bench tool on the device already in their pocket.
 - Native SwiftUI + `AVAudioEngine` — no third-party DSP libs
 - Click-free parameter changes via per-sample smoothing in the render block
 - Sample-accurate phase relationship between L and R
-- Background audio: keeps generating with the screen off
+- Background audio: keeps generating with the screen off, with play/pause on
+  the lock screen and in Control Center
+- Settings are remembered between launches; the app always starts silent
 
 ## Getting Started
 
